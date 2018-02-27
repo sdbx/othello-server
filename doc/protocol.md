@@ -1,4 +1,4 @@
-# rest
+# 
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
@@ -11,11 +11,26 @@
 | DELETE | /connect | 방에서 나옵니다 |
 | UPDATE | /rooms/{room}/{user} | 특정 룸의 특정 유저를 관리합니다 |
 
-# 프로토콜
+# 게임
+
+## rest
+
+| 메소드 | 엔드포인트 | 설명 |
+| --- | --- | --- |
+| POST | /move | 수를 둡니다 |
+| DELETE | /move | 수를 무릅니다 |
+| GET | /board | 현재 보드를 가져옵니다 |
+| GET | /history | 현재 히스토리를 가져옵니다 |
+| GET | /initial | 초기 보드를 가져옵니다 |
+| POST | /surrender | 서랜을 칩니다 |
+
+## websocket
 
 모든 메세지는 TEXT포멧으로만 오고 모두 JSON형식을 따르며 메세지의 종류를 의미하는 type필드가 있습니다. 아래 서브헤더들의 제목은 type필드의 값 즉, 메세지의 종류를 의미합니다.
 
-## ping
+### 송신
+
+### ping
 
 핑!
 
@@ -46,20 +61,6 @@ function keepAlive() {
 keepAlive();
 ```
 
-## 게임 rest
-
-| 메소드 | 엔드포인트 | 설명 |
-| --- | --- | --- |
-| POST | /move | 수를 둡니다 |
-| DELETE | /move | 수를 무릅니다 |
-| GET | /board | 현재 보드를 가져옵니다 |
-| GET | /history | 현재 히스토리를 가져옵니다 |
-| GET | /initial | 초기 보드를 가져옵니다 |
-| POST | /surrender | 서랜을 칩니다 |
-
-## 게임 websocket
-
-### 송신
 
 ### login
 
