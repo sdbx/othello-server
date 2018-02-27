@@ -1,11 +1,15 @@
 package main
 
-//아무것도 없지만 샌박 페이지에 고가 올라가는 것에
-// 이의가 있죠
-// ㅋㅋ!
+import (
+	"net/http"
 
-import "fmt"
+	"github.com/sdbx/othello-server/api"
+	"github.com/sdbx/othello-server/othello"
+)
 
 func main() {
-	fmt.Println("KU! KU!")
+	service := othello.NewService()
+	app := api.New(service)
+	r := app.GetRouter()
+	http.ListenAndServe("127.0.0.1:8080", r)
 }
