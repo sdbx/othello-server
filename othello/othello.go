@@ -1,5 +1,7 @@
 package othello
 
+type h map[string]interface{}
+
 type Service struct {
 	UserStore *UserStore
 	RoomStore *RoomStore

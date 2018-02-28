@@ -30,7 +30,7 @@ func hubCreateHandler(h *othello.Hub) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		vars := mux.Vars(r)
-		hub := vars["hub"]
+		hub := vars["room"]
 		request := hubCreateRequest{}
 		err := json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {

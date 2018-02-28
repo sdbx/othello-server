@@ -19,7 +19,7 @@ func Start(serv *othello.Service) *mux.Router {
 
 	r.Path("/rooms/{room}").
 		HandlerFunc(hubCreateHandler(service.RoomStore.Hub)).
-		Methods("POSt").
+		Methods("POST").
 		Name("room create")
 
 	r.Path("/ws/rooms/{room}").

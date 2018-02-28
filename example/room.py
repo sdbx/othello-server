@@ -1,10 +1,28 @@
-
 import asyncio
 import websockets
+import requests
+import json
 
-async def hello(uri):
-    async with websockets.connect(uri) as websocket:
-        await websocket.send("Hello world!")
+secret = input("secret ")
+r = requests.post('http://127.0.0.1:8080/rooms/asdf', data=json.dumps({
+    'secret': secret
+}), headers={
+    'Content-Type': 'application/json'
+})
 
-asyncio.get_event_loop().run_until_complete(
-    hello('ws://localhost:8080/room/ws/asdf'))
+print(r.status_code)
+print(r.text)
+
+async def test():
+    async with websockets.connect('ws://127.0.0.1:8080/ws/rooms/asdf') as websocket:
+        while True:
+            content = input("content ")
+            if content == "exit":
+                break
+            await websocket.send(content)
+            print("> {}".format(content))
+
+            back = await websocket.recv()
+            print("< {}".format(back))
+
+asyncio.get_event_loop().run_until_complete(test())

@@ -1,3 +1,7 @@
+# 개요
+
+인코딩은 모두 utf-8입니다. 인공지능 봇을 만들고 싶으신 분은 쭉 내려가셔서 게임부분부터 읽으시면 됩니다.
+
 # 유저 관련
 
 ## rest 
@@ -161,7 +165,7 @@ keepAlive();
 ```
 {
   type:"disconnect",
-  who:유저아이디,
+  username:유저아이디,
   next_king:유저아이디 or x
 }
 ```
@@ -172,8 +176,8 @@ keepAlive();
 
 ```
 {
-  type:"disconnect",
-  who:유저아이디
+  type:"connect",
+  username:유저아이디
 }
 ```
 
@@ -219,11 +223,64 @@ keepAlive();
 
 ### ping
 
-위와 동일
+핑!
+
+```
+{
+  type:"ping"
+}
+```
+
+응답:
+```
+{
+  type:"pong"
+}
+```
+
+웹소켓의 특성상 지속적으로 메세지를 보내지 않으면 타임아웃에 걸려버립니다. ping메세지를 일정 주기로 보내주십시오.
+
+예:
+```js
+function keepAlive() {
+    var timeout = 20000;
+    if (webSocket.readyState == webSocket.OPEN) {
+        webSocket.send('{type:"ping"}');
+    }
+    timerId = setTimeout(keepAlive, timeout);
+}
+keepAlive();
+```
+
 
 ### login
 
-위와 동일
+서버에게 자신이 등록된 클라이언트임을 증명합니다. login이 성공적으로 이루어지지 않았을 경우 프로토콜 사용이 불가능합니다
+
+```
+{
+  type:"login",
+  secret:"시크릿"
+}
+```
+
+성공응답:
+```
+{
+  type:"success",
+  from:"login"
+  username:"사용자이름"
+}
+```
+
+실패응답:
+```
+{
+  type:"error",
+  from:"login",
+  msg:"에러메세지"
+}
+```
 
 ### 수신
 
@@ -272,5 +329,28 @@ keepAlive();
   type:"undo",
   who:"black" or "white",
   move: 수index
+}
+```
+
+### disconnect
+
+누군가의 접속이 끊어졌을 때 생깁니다. 만약 방장의 접속이 끊어진 경우 다음 방장의 아이디도 포함됩니다.
+
+```
+{
+  type:"disconnect",
+  username:유저아이디,
+  next_king:유저아이디 or x
+}
+```
+
+### connect
+
+누군가의 접속했을 때 생깁니다
+
+```
+{
+  type:"connect",
+  username:유저아이디
 }
 ```

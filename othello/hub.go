@@ -8,16 +8,24 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
 type Hub struct {
-	Rooms     map[string]*Room
-	userStore *UserStore
+	Rooms        map[string]*Room
+	ReadHandlers map[string]func(*Room, *Client, []byte)
+	userStore    *UserStore
 }
 
 func NewHub(userStore *UserStore) *Hub {
 	return &Hub{
-		Rooms:     make(map[string]*Room),
+		Rooms: make(map[string]*Room),
+		ReadHandlers: map[string]func(*Room, *Client, []byte){
+			"ping":  ping,
+			"login": login,
+		},
 		userStore: userStore,
 	}
 }
@@ -40,6 +48,7 @@ func (h *Hub) AddRoom(roomname string, usersecret string) (*Room, error) {
 		Broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		hub:        h,
 	}
 	h.Rooms[roomname] = room
 	return room, nil

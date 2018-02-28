@@ -1,10 +1,10 @@
 package othello
 
 import (
-	"fmt"
 	"log"
 	"time"
 
+	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
 )
 
@@ -39,7 +39,16 @@ func (c *Client) read() {
 			}
 			break
 		}
-		fmt.Println(message)
+		typ, err := jsonparser.GetString(message, "type")
+		if err != nil {
+			log.Printf("error: %v", err)
+			continue
+		}
+
+		if handler, ok := c.room.hub.ReadHandlers[typ]; ok {
+			handler(c.room, c, message)
+		}
+
 	}
 }
 
