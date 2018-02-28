@@ -1,32 +1,25 @@
-# 방
+# 유저 관련
+
+## rest 
 
 | 메소드 | 엔드포인트 | 설명 |
-| --- | --- | --- |
 | POST | /register | 클라이언트를 등록시킵니다 |
-| GET | /rooms | 방 리스트를 구합니다 |
-| POST | /rooms/{room} | 방을 팝니다 |
-| DELETE | /rooms/{room} | 방을 없앱니다. |
-| GET | /rooms/{room} | 특정 방의 정보를 가져옵니다 |
-| POST | /connect | 특정 방에 들어갑니다 |
-| DELETE | /connect | 방에서 나옵니다 |
-| UPDATE | /rooms/{room}/{user} | 특정 룸의 특정 유저를 관리합니다 |
 
-# 게임
+# 방
 
 ## rest
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | /move | 수를 둡니다 |
-| DELETE | /move | 수를 무릅니다 |
-| GET | /board | 현재 보드를 가져옵니다 |
-| GET | /history | 현재 히스토리를 가져옵니다 |
-| GET | /initial | 초기 보드를 가져옵니다 |
-| POST | /surrender | 서랜을 칩니다 |
+| GET | /rooms | 방 리스트를 구합니다 |
+| POST | /rooms/{room} | 방을 팝니다 |
+| GET | /rooms/{room} | 특정 방의 정보를 가져옵니다 |
 
 ## websocket
 
 모든 메세지는 TEXT포멧으로만 오고 모두 JSON형식을 따르며 메세지의 종류를 의미하는 type필드가 있습니다. 아래 서브헤더들의 제목은 type필드의 값 즉, 메세지의 종류를 의미합니다.
+
+/ws/rooms/{room}로 접속합니다
 
 ### 송신
 
@@ -91,27 +84,113 @@ keepAlive();
 }
 ```
 
-### join
+### action
 
-게임에 접속합니다
+만약 방장일 경우 특정 유저에게 어떤 행동을 취합니다.
+
+강퇴(브로드캐스트)
 
 ```
 {
-  type:"join",
-  id:"방id",
-  password:"비밀번호" or x
+  type:"action",
+  target:"유저이름",
+  action:"kick"
+}
+``` 
+
+방장넘기기(브로드캐스트)
+
+```
+{
+  type:"action",
+  target:"유저이름",
+  action:"king"
+}
+``` 
+
+흑으로 만들기(브로드캐스트)
+
+```
+{
+  type:"action",
+  target:"유저이름",
+  action:"black"
+}
+``` 
+
+백으로 만들기(브로드캐스트)
+
+```
+{
+  type:"action",
+  target:"유저이름",
+  action:"white"
+}
+``` 
+
+### 수신
+
+### info
+
+이 방에 대한 정보를 알려줍니다
+
+```
+{
+  type:"info",
+  participants:참가자들 유저아이디,
+  king:방장 유저아이디,
+  type:게임 타입,
+  status:"ingame" or "preparing"
 }
 ```
 
-성공응답:
+### disconnect
+
+누군가의 접속이 끊어졌을 때 생깁니다. 만약 방장의 접속이 끊어질 경우 다음 방장의 아이디도 포함됩니다.
+
 ```
 {
-  type:"success",
-  form:"join",
-  initial:초기게임보드,
-  history:히스토리
+  type:"disconnect",
+  who:유저아이디,
+  next_king:유저아이디 or x
 }
 ```
+
+### connect
+
+누군가의 접속했을 때 생깁니다
+
+```
+{
+  type:"disconnect",
+  who:유저아이디
+}
+```
+
+# 게임
+
+## rest
+
+| 메소드 | 엔드포인트 | 설명 |
+| --- | --- | --- |
+| POST | /move | 수를 둡니다 |
+| DELETE | /move | 수를 무릅니다 |
+| GET | /board | 현재 보드를 가져옵니다 |
+| GET | /history | 현재 히스토리를 가져옵니다 |
+| GET | /initial | 초기 보드를 가져옵니다 |
+| POST | /surrender | 서랜을 칩니다 |
+
+## websocket
+
+### 송신
+
+### ping
+
+위와 동일
+
+### login
+
+위와 동일
 
 ### 수신
 
