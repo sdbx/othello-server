@@ -1,4 +1,4 @@
-package room
+package othello
 
 import (
 	"fmt"
@@ -18,10 +18,10 @@ const (
 
 type Client struct {
 	User *othello.User
+	Send chan []byte
 
 	room *Room
 	conn *websocket.Conn
-	send chan []byte
 }
 
 func (c *Client) read() {
@@ -52,7 +52,7 @@ func (c *Client) write() {
 	}()
 	for {
 		select {
-		case message, ok := <-c.send:
+		case message, ok := <-c.Send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})

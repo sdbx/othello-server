@@ -1,15 +1,12 @@
-package room
+package api
 
 import (
 	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sdbx/othello-server/othello"
 	"github.com/sdbx/othello-server/util"
 )
-
-var service *othello.Service
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -43,17 +40,4 @@ func roomCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	go room2.run()
 	w.WriteHeader(http.StatusOK)
-}
-
-func Start(serv *othello.Service) *mux.Router {
-	service = serv
-	r := mux.NewRouter()
-	r.HandleFunc("/ws/{room}", handleWebsocket)
-
-	r.HandleFunc("/{room}", roomCreateHandler).
-		Methods("POST")
-
-	r.HandleFunc("/", roomCreateHandler).
-		Methods("GET")
-	return r
 }
