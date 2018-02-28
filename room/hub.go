@@ -16,18 +16,18 @@ var upgrader = websocket.Upgrader{
 
 type roomHub map[string]*Room
 
-func (rs *roomHub) AddRoom(roomname string, usersecret string) error {
+func (rs *roomHub) AddRoom(roomname string, usersecret string) (*Room, error) {
 	user := service.UserStore.GetUserBySecret(usersecret)
 	if user == nil {
-		return errors.New("user doesn't exist")
+		return nil, errors.New("user doesn't exist")
 	}
 	if user.Status != othello.None {
-		return errors.New("user is already in room")
+		return nil, errors.New("user is already in room")
 	}
 	if _, ok := (*rs)[roomname]; ok {
-		return errors.New("room already exist")
+		return nil, errors.New("room already exist")
 	}
-	(*rs)[roomname] = &Room{
+	room := &Room{
 		Name:       roomname,
 		Clients:    make(map[*Client]bool),
 		Ready:      false,
@@ -35,7 +35,8 @@ func (rs *roomHub) AddRoom(roomname string, usersecret string) error {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
-	return nil
+	(*rs)[roomname] = room
+	return room, nil
 }
 
 var RoomHub roomHub = make(map[string]*Room)
@@ -69,7 +70,9 @@ func (h *Room) run() {
 			h.Clients[client] = true
 		case client := <-h.unregister:
 			if _, ok := h.Clients[client]; ok {
-				client.User.Status = othello.None
+				if client.User != nil {
+					client.User.Status = othello.None
+				}
 				delete(h.Clients, client)
 				close(client.send)
 			}

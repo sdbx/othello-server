@@ -21,20 +21,28 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 }
 
 type roomCreateRequest struct {
-	Roomname string `json:"roomname`
-	Secret   string `json:"secret"`
+	Secret string `json:"secret"`
 }
 
 func roomCreateHandler(w http.ResponseWriter, r *http.Request) {
 	if !util.JsonTest(w, r) {
 		return
 	}
+	vars := mux.Vars(r)
+	room := vars["room"]
 	request := roomCreateRequest{}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		util.ErrorWrite(w, r, err.Error(), "RoomCreateHandler")
+		return
 	}
-	RoomHub.AddRoom(request.Roomname, request.Secret)
+	room2, err := RoomHub.AddRoom(room, request.Secret)
+	if err != nil {
+		util.ErrorWrite(w, r, err.Error(), "RoomCreateHandler")
+		return
+	}
+	go room2.run()
+	w.WriteHeader(http.StatusOK)
 }
 
 func Start(serv *othello.Service) *mux.Router {

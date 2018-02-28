@@ -35,6 +35,7 @@ func (us *UserStore) Register(username string) string {
 	(*us)[key] = &User{
 		Name:   username,
 		Secret: key,
+		Status: None,
 	}
 	return key
 }

@@ -14,7 +14,7 @@ func main() {
 	r := room.Start(service)
 	r2 := api.Start(service)
 	group := mux.NewRouter()
-	group.Handle("/room", r)
-	group.Handle("/api", r2)
+	group.PathPrefix("/room").Handler(http.StripPrefix("/room", r))
+	group.PathPrefix("/api").Handler(http.StripPrefix("/api", r2))
 	http.ListenAndServe("127.0.0.1:8080", group)
 }
