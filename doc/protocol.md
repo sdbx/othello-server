@@ -200,6 +200,8 @@ keepAlive();
 
 # 게임
 
+/ws/games/{room}
+
 ## rest
 
 | 메소드 | 엔드포인트 | 설명 |
@@ -258,5 +260,17 @@ keepAlive();
   type:"tick",
   black_time:흑 남은 시간,
   white_time:백 남은 시간
+}
+```
+
+### undo
+
+수를 물렀음을 의미합니다. 수 index로 돌아가야 합니다.
+
+```
+{
+  type:"undo",
+  who:"black" or "white",
+  move: 수index
 }
 ```
