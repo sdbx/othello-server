@@ -6,22 +6,28 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/sdbx/othello-server/othello"
 )
 
 var upgrader = websocket.Upgrader{}
 
 type Hub struct {
-	Rooms   map[string]*Room
-	service *othello.Service
+	Rooms     map[string]*Room
+	userStore *UserStore
+}
+
+func NewHub(userStore *UserStore) *Hub {
+	return &Hub{
+		Rooms:     make(map[string]*Room),
+		userStore: userStore,
+	}
 }
 
 func (h *Hub) AddRoom(roomname string, usersecret string) (*Room, error) {
-	user := h.service.UserStore.GetUserBySecret(usersecret)
+	user := h.userStore.GetUserBySecret(usersecret)
 	if user == nil {
 		return nil, errors.New("user doesn't exist")
 	}
-	if user.Status != othello.None {
+	if user.Status != None {
 		return nil, errors.New("user is already in room")
 	}
 	if _, ok := h.Rooms[roomname]; ok {
@@ -70,7 +76,7 @@ func (r *Room) Run() {
 		case client := <-r.unregister:
 			if _, ok := r.Clients[client]; ok {
 				if client.User != nil {
-					client.User.Status = othello.None
+					client.User.Status = None
 				}
 				close(client.Send)
 				delete(r.Clients, client)

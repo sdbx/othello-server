@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/sdbx/othello-server/othello"
 )
 
 const (
@@ -17,7 +16,7 @@ const (
 )
 
 type Client struct {
-	User *othello.User
+	User *User
 	Send chan []byte
 
 	room *Room

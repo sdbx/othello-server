@@ -16,5 +16,14 @@ func Start(serv *othello.Service) *mux.Router {
 		HandlerFunc(registerHandler).
 		Methods("POST").
 		Name("register")
+
+	r.Path("/rooms/{room}").
+		HandlerFunc(hubCreateHandler(service.RoomStore.Hub)).
+		Methods("POSt").
+		Name("room create")
+
+	r.Path("/ws/rooms/{room}").
+		HandlerFunc(hubWebsocketHandler(service.RoomStore.Hub)).
+		Name("room websocket")
 	return r
 }
