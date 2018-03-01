@@ -19,6 +19,8 @@
 #### 헤더
 
 Naver-Token : 네이버 로그인 api의 토큰입니다
+
+
 User-Secret : 유저 시크릿
 
 #### 응답
