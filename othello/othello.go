@@ -4,13 +4,13 @@ type h map[string]interface{}
 
 type Service struct {
 	UserStore *UserStore
-	RoomStore *RoomStore
+	GameStore *GameStore
 }
 
 func NewService() *Service {
 	var userStore UserStore = map[string]*User{}
 	return &Service{
 		UserStore: &userStore,
-		RoomStore: NewRoomStore(&userStore),
+		GameStore: NewGameStore(&userStore),
 	}
 }

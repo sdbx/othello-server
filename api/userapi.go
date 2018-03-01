@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/sdbx/othello-server/util"
 )
 
 type registerRequest struct {
@@ -12,20 +10,20 @@ type registerRequest struct {
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	if !util.JsonTest(w, r) {
+	if !jsonTest(w, r) {
 		return
 	}
 
 	request := registerRequest{}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		util.ErrorWrite(w, r, err.Error(), "RegisterHandler")
+		errorWrite(w, r, err.Error(), "RegisterHandler")
 		return
 	}
 
 	name := request.Username
 	if service.UserStore.GetUserByName(name) != nil {
-		util.ErrorWrite(w, r, "username already exist", "RegisterHandler")
+		errorWrite(w, r, "username already exist", "RegisterHandler")
 		return
 	}
 

@@ -12,13 +12,14 @@ const (
 	InRoom
 )
 
-type User struct {
-	Name   string
-	Secret string
-	Status UserStatus
-}
-
-type UserStore map[string]*User
+type (
+	User struct {
+		Name   string
+		Secret string
+		Status UserStatus
+	}
+	UserStore map[string]*User
+)
 
 func (us *UserStore) Register(username string) string {
 	if len(username) == 0 {
