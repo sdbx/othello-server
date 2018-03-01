@@ -1,30 +1,41 @@
-유저생성
+# 유저생성
 POST http://127.0.0.1:8080/register
-header
+
+## header
 'Content-Type': 'application/json'
-body
+
+## body
+```
 {
     'username': username
 }
-return
+```
+
+## return
+```
 {
     'secret':시크릿
 }
+```
 
-게임 만들기
+# 게임 만들기
 POST http://127.0.0.1:8080/games/{game}
-header
+## header
 'Content-Type': 'application/json'
-body
+## body
+```
 {
     'secret': 시크릿,
     'white': white유저아이디,
     'black': black유저아이디
 }
+```
 
-게임 정보 가져오기
+# 게임 정보 가져오기
 GET http://127.0.0.1:8080/games/{game}
-return
+
+## return
+```
 {
     "black":   흑유저아이디,
     "white":   백유저아이디,
@@ -33,31 +44,39 @@ return
     "initial": 처음보드,
     "list" 디버깅으로 만듬 삭제 예정
 }
+```
 
-수 놓기
+# 수 놓기
 POST http://127.0.0.1:8080/games/{game}/actions
-header
+
+## header
 'Content-Type': 'application/json'
-body
+## body
+```
 {
     'secret': 시크릿,
     'move': 수,
     'type': 'put'
 }
+```
 
-웹소켓
+# 웹소켓
 http://127.0.0.1:8080/ws/games
 
-로그인(전송)
+## 로그인(전송)
+```
 {
     "type":"login",
     "secret":시크릿,
     "game": 게임
 }
+```
 
-수가 놓아졋을시(수신)
+## 수가 놓아졋을시(수신)
+```
 {
     "type":"put",
     "move":수,
     "color":색깔
 }
+```
