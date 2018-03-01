@@ -58,11 +58,3 @@ const connectMsg = `
 	"username":"%s"
 }
 `
-
-const toomanyMsg = `
-{
-	"type":"error",
-	"from":"login",
-	"msg":"the maximun number of sessions of a same user in one game is two"
-}
-`

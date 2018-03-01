@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/buger/jsonparser"
 	websocket "github.com/kataras/go-websocket"
@@ -32,6 +33,7 @@ type (
 )
 
 func (g *gameRoom) emitMessage(message []byte) {
+	log.Println("websocket sent from", g.name, ":", string(message))
 	for _, con := range g.ws.GetConnectionsByRoom(g.name) {
 		con.EmitMessage(message)
 	}
@@ -76,10 +78,12 @@ func (gs *GameStore) ListGames() []string {
 }
 
 func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) error {
+	log.Println(room, " game created")
 	if _, ok := gs.games[room]; ok {
 		return errors.New("game already exist")
 	}
 	gameroom := &gameRoom{
+		name:       room,
 		ws:         gs.WS,
 		clients:    make(map[*gameClient]bool),
 		register:   make(chan *gameClient),
@@ -108,6 +112,7 @@ type loginRequest struct {
 func (gs *GameStore) handleConnection(c websocket.Connection) {
 	client := &gameClient{}
 	c.OnMessage(func(message []byte) {
+		log.Println("websocket recieved:", string(message))
 		typ, err := jsonparser.GetString(message, "type")
 		if err != nil {
 			c.EmitMessage([]byte(jsonErrorMsg))

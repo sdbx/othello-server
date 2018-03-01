@@ -2,17 +2,22 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sdbx/othello-server/othello"
 )
 
 var service *othello.Service
 
+var Logger io.Writer
+
 type h map[string]interface{}
 
-func Start(serv *othello.Service) *mux.Router {
+func Start(serv *othello.Service) http.Handler {
 	service = serv
 	r := mux.NewRouter()
 	r.Path("/register").
@@ -43,8 +48,9 @@ func Start(serv *othello.Service) *mux.Router {
 	r.Path("/ws/games").
 		Handler(service.GameStore.WS.Handler()).
 		Name("game websocket")
-
-	return r
+	cors := handlers.AllowedOrigins([]string{"*"})
+	corsed := handlers.CORS(cors)(r)
+	return handlers.LoggingHandler(os.Stdout, corsed)
 }
 
 type Error struct {
