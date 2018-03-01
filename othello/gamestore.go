@@ -9,17 +9,58 @@ import (
 	websocket "github.com/kataras/go-websocket"
 )
 
-type GameStore struct {
-	WS        websocket.Server
-	userStore *UserStore
-	games     map[string]*game
+type (
+	GameStore struct {
+		WS        websocket.Server
+		userStore *UserStore
+		games     map[string]*gameRoom
+	}
+	gameClient struct {
+		user *User
+		room *gameRoom
+	}
+	gameRoom struct {
+		name string
+		game *Game
+		ws   websocket.Server
+
+		clients    map[*gameClient]bool
+		register   chan *gameClient
+		unregister chan *gameClient
+		close      chan bool
+	}
+)
+
+func (g *gameRoom) emitMessage(message []byte) {
+	for _, con := range g.ws.GetConnectionsByRoom(g.name) {
+		con.EmitMessage(message)
+	}
+}
+
+func (g *gameRoom) emit(typ string, ho h) {
+	ho["type"] = typ
+	content, _ := json.Marshal(ho)
+	g.emitMessage(content)
+}
+
+func (g *gameRoom) run() {
+	for {
+		select {
+		case client := <-g.register:
+			g.clients[client] = true
+		case client := <-g.unregister:
+			delete(g.clients, client)
+		case <-g.close:
+			return
+		}
+	}
 }
 
 func NewGameStore(userStore *UserStore) *GameStore {
 	gs := &GameStore{
 		WS:        websocket.New(websocket.Config{}),
 		userStore: userStore,
-		games:     make(map[string]*game),
+		games:     make(map[string]*gameRoom),
 	}
 	gs.WS.OnConnection(gs.handleConnection)
 	return gs
@@ -34,25 +75,34 @@ func (gs *GameStore) ListGames() []string {
 	return list
 }
 
-func (gs *GameStore) CreateGame(room string) error {
+func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) error {
 	if _, ok := gs.games[room]; ok {
 		return errors.New("game already exist")
 	}
-	gs.games[room] = &game{
+	gameroom := &gameRoom{
 		ws:         gs.WS,
 		clients:    make(map[*gameClient]bool),
 		register:   make(chan *gameClient),
 		unregister: make(chan *gameClient),
 		close:      make(chan bool),
 	}
-	go gs.games[room].run()
+	gameroom.game = newGame(gameroom, black, white, gameType)
+	gs.games[room] = gameroom
+	go gameroom.run()
+	return nil
+}
+
+func (gs *GameStore) GetGame(room string) *Game {
+	if groom, ok := gs.games[room]; ok {
+		return groom.game
+	}
 	return nil
 }
 
 type loginRequest struct {
 	Type   string `json:"type"`
 	Secret string `json:"secret"`
-	Room   string `json:"room"`
+	Room   string `json:"game"`
 }
 
 func (gs *GameStore) handleConnection(c websocket.Connection) {

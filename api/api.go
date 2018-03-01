@@ -23,16 +23,26 @@ func Start(serv *othello.Service) *mux.Router {
 	r.Path("/games").
 		HandlerFunc(gameListHandler).
 		Methods("GET").
-		Name("room list")
+		Name("game list")
+
+	r.Path("/games/{game}").
+		HandlerFunc(gameGetHandler).
+		Methods("GET").
+		Name("game get")
 
 	r.Path("/games/{game}").
 		HandlerFunc(gameCreateHandler).
 		Methods("POST").
-		Name("room create")
+		Name("game create")
+
+	r.Path("/games/{game}/actions").
+		HandlerFunc(gameActionsHandler).
+		Methods("POST").
+		Name("game actions")
 
 	r.Path("/ws/games").
 		Handler(service.GameStore.WS.Handler()).
-		Name("room websocket")
+		Name("game websocket")
 
 	return r
 }

@@ -10,21 +10,20 @@
 | --- | --- | --- |
 | POST | /register | 클라이언트를 등록시킵니다 |
 
-# 방
+# 게임
 
 ## rest
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
 | GET | /rooms | 방 리스트를 구합니다 |
-| POST | /rooms/{room} | 방을 팝니다 |
 | GET | /rooms/{room} | 특정 방의 정보를 가져옵니다 |
 
 ## websocket
 
-모든 메세지는 TEXT포멧으로만 오고 모두 JSON형식을 따르며 메세지의 종류를 의미하는 type필드가 있습니다. 아래 서브헤더들의 제목은 type필드의 값 즉, 메세지의 종류를 의미합니다.
+모든 메세지는 TEXT포멧으로만 오고 모두 JSON형식을 따르며 메세지의 종류를 의미하는 type필드가 있습니다. 아래 서브헤더들의 제목은 type필드의 값 즉, 메세지의 종류를 의미합니다. 또한 사람이 없는 방에 웹소켓으로 접속하게 되면 자동으로 방이 파지고 그 방의 사람이 0명이 되면 방이 사라집니다.
 
-/ws/rooms/{room}로 접속합니다
+/ws/rooms로 접속합니다
 
 ### 송신
 
@@ -67,7 +66,8 @@ keepAlive();
 ```
 {
   type:"login",
-  secret:"시크릿"
+  secret:"시크릿",
+  room:"방"
 }
 ```
 
@@ -210,12 +210,9 @@ keepAlive();
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | /move | 수를 둡니다 |
-| DELETE | /move | 수를 무릅니다 |
-| GET | /board | 현재 보드를 가져옵니다 |
-| GET | /history | 현재 히스토리를 가져옵니다 |
-| GET | /initial | 초기 보드를 가져옵니다 |
-| POST | /surrender | 서랜을 칩니다 |
+| POST | /game/{id}/actions | 게임에 뭔짓을 합니다 |
+| GET | /game/{id} | 현재 게임에 대한 정보를 가져옵니다 |
+
 
 ## websocket
 
@@ -291,7 +288,7 @@ keepAlive();
 ```
 {
   type:"turn",
-  now:"black" or "white",
+  color:"black" or "white",
   move:수
 }
 ```
@@ -329,28 +326,5 @@ keepAlive();
   type:"undo",
   who:"black" or "white",
   move: 수index
-}
-```
-
-### disconnect
-
-누군가의 접속이 끊어졌을 때 생깁니다. 만약 방장의 접속이 끊어진 경우 다음 방장의 아이디도 포함됩니다.
-
-```
-{
-  type:"disconnect",
-  username:유저아이디,
-  next_king:유저아이디 or x
-}
-```
-
-### connect
-
-누군가의 접속했을 때 생깁니다
-
-```
-{
-  type:"connect",
-  username:유저아이디
 }
 ```
