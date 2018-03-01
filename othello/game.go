@@ -2,101 +2,15 @@ package othello
 
 import (
 	"errors"
-	"regexp"
-	"strconv"
 )
 
-type gameClientType uint
-
-type Tile uint
-
-const (
-	GameTileBlack Tile = iota
-	GameTileWhite
-	GameTileNone
-	GameTileInvalid
-)
-
-type Turn string
-
-const (
-	GameTurnBlack = "black"
-	GameTurnWhite = "white"
-)
-
-func (t Turn) GetTile() Tile {
-	if t == GameTurnBlack {
-		return GameTileBlack
-	}
-	if t == GameTurnWhite {
-		return GameTileWhite
-	}
-	return GameTileInvalid
-}
-
-func (t Turn) GetOpp() Turn {
-	switch t {
-	case GameTurnBlack:
-		return GameTurnWhite
-	case GameTurnWhite:
-		return GameTurnBlack
-	default:
-		return ""
-	}
-}
-
-func TurnFromTile(t Tile) Turn {
-	if t == GameTileBlack {
-		return GameTurnBlack
-	}
-	if t == GameTileWhite {
-		return GameTurnWhite
-	}
-	return ""
-}
-
-type Move string
-
-const MoveNone = "none"
-
-type (
-	Coordinate struct {
-		X int
-		Y int
-	}
-	History []Move
-	Board   [][]Tile
-
-	Game struct {
-		Black    string
-		White    string
-		Board    Board
-		History  History
-		GameType GameType
-		gameRoom *gameRoom
-	}
-
-	GameType interface {
-		Name() string
-		Initial() Board
-		Size() Coordinate
-	}
-
-	DefaultOthello struct {
-	}
-)
-
-func (t Tile) GetFlip() Tile {
-	switch t {
-	case GameTileBlack:
-		return GameTileWhite
-	case GameTileWhite:
-		return GameTileBlack
-	case GameTileNone:
-		return GameTileNone
-	default:
-		return GameTileInvalid
-	}
+type Game struct {
+	Black    string
+	White    string
+	Board    Board
+	History  History
+	GameType GameType
+	gameRoom *gameRoom
 }
 
 func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) *Game {
@@ -108,31 +22,6 @@ func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) 
 		GameType: gameType,
 		gameRoom: gameRoom,
 	}
-}
-
-func (c Coordinate) ToMove() Move {
-	y := strconv.Itoa(c.Y + 1)
-	return Move(string(c.X+'a') + y)
-}
-
-func CordFromMove(move Move) (Coordinate, error) {
-	r := regexp.MustCompile(`^([a-z]+)([0-9]{1})$`)
-	arr := r.FindStringSubmatch(string(move))
-	if len(arr) != 3 {
-		return Coordinate{}, errors.New("invalid move")
-	}
-	x := arr[1][0] - 'a'
-	y, _ := strconv.Atoi(arr[2])
-	return Coordinate{int(x), y - 1}, nil
-}
-
-func (c *Coordinate) Add(cor Coordinate) {
-	c.X += cor.X
-	c.Y += cor.Y
-}
-
-func (c Coordinate) IsValid(sizeCord Coordinate) bool {
-	return c.X >= 0 && c.Y >= 0 && c.X < sizeCord.X && c.Y < sizeCord.Y
 }
 
 var dirs = []Coordinate{{0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {1, -1}, {-1, -1}, {-1, 1}}
@@ -262,29 +151,4 @@ func (g *Game) PossibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
 		}
 	}
 	return false
-}
-
-func (d DefaultOthello) Name() string {
-	return "default"
-}
-
-func (d DefaultOthello) Initial() Board {
-	ma := make([][]Tile, 8)
-	for i := 0; i < 8; i++ {
-		ma[i] = make([]Tile, 8)
-	}
-	for i := 0; i < 8; i++ {
-		for j := 0; j < 8; j++ {
-			ma[i][j] = GameTileNone
-		}
-	}
-	ma[3][3] = GameTileWhite
-	ma[3][4] = GameTileBlack
-	ma[4][3] = GameTileBlack
-	ma[4][4] = GameTileWhite
-	return ma
-}
-
-func (d DefaultOthello) Size() Coordinate {
-	return Coordinate{8, 8}
 }
