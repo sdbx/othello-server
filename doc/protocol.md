@@ -6,24 +6,79 @@
 
 ## rest 
 
+### 요약
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | /register | 클라이언트를 등록시킵니다 |
+| GET | /users/me | 클라이언트의 정보를 가져옵니다 |
 
-# 게임
+
+### /users/me
+
+네이버 토큰 또는 유저 시크릿을 이용해 클라이언트의 정보를 가져옵니다. 둘 중 하나만 있어도 동작하며 네이버 토큰의 경우 클라이언트가 등록되지 않았을 경우 자동으로 등록후 정보를 반환해줍니다.
+
+#### 헤더
+
+Naver-Token : 네이버 로그인 api의 토큰입니다
+User-Secret : 유저 시크릿
+
+#### 응답
+
+```
+{
+  secret: 유저시크릿
+  username: 유저이름
+} 
+```
+
+# 방
 
 ## rest
+
+### 헤더
+
+User-Secret : 유저 시크릿
+
+### 요약
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
 | GET | /rooms | 방 리스트를 구합니다 |
-| GET | /rooms/{room} | 특정 방의 정보를 가져옵니다 |
+| GET | /rooms/{room}?password=비밀번호 | 특정 방의 정보를 가져옵니다 |
 
-## websocket
+### /rooms
 
-모든 메세지는 TEXT포멧으로만 오고 모두 JSON형식을 따르며 메세지의 종류를 의미하는 type필드가 있습니다. 아래 서브헤더들의 제목은 type필드의 값 즉, 메세지의 종류를 의미합니다. 또한 사람이 없는 방에 웹소켓으로 접속하게 되면 자동으로 방이 파지고 그 방의 사람이 0명이 되면 방이 사라집니다.
+#### 응답
 
-/ws/rooms로 접속합니다
+```
+{
+  rooms:[
+    {
+      name: 방이름
+      king: 방장이름
+      password: true or false
+    }
+    ...
+  ]
+}
+```
+
+### /rooms/{room}?password=비밀번호
+
+#### 응답
+
+```
+{
+  name: 방이름
+  king: 방장이름
+  password: true or false
+  status: "ingame" or "outgame"
+  game: 게임id or x 
+}
+```
+
+## 웹소켓
+
+존재하지 않는 방에 login 할 시 방이 자동으로 파집니다. 방은 게임이 시작되었을 경우 모든 클라이언트들이 방 웹소켓과 접속이 끊어져도 방은 유지되나 준비중의 방의 경우는 방이 사라집니다. 그렇기에 방과 게임 페이지를 분리해도 게임이 끝났을 때 방 페이지로 돌아와 다시 방 웹소켓에 연결한다는 보장이 있으면 문제가 없습니다.
 
 ### 송신
 
@@ -65,26 +120,17 @@ keepAlive();
 
 ```
 {
-  type:"login",
-  secret:"시크릿",
+  type:"login"
+  secret:"시크릿"
   room:"방"
-}
-```
-
-성공응답:
-```
-{
-  type:"success",
-  from:"login"
-  username:"사용자이름"
 }
 ```
 
 실패응답:
 ```
 {
-  type:"error",
-  from:"login",
+  type:"error"
+  from:"login"
   msg:"에러메세지"
 }
 ```
@@ -97,8 +143,8 @@ keepAlive();
 
 ```
 {
-  type:"action",
-  target:"유저이름",
+  type:"action"
+  target:"유저이름"
   action:"kick"
 }
 ``` 
@@ -107,8 +153,8 @@ keepAlive();
 
 ```
 {
-  type:"action",
-  target:"유저이름",
+  type:"action"
+  target:"유저이름"
   action:"king"
 }
 ``` 
@@ -117,8 +163,8 @@ keepAlive();
 
 ```
 {
-  type:"action",
-  target:"유저이름",
+  type:"action"
+  target:"유저이름"
   action:"black"
 }
 ``` 
@@ -127,36 +173,36 @@ keepAlive();
 
 ```
 {
-  type:"action",
-  target:"유저이름",
+  type:"action"
+  target:"유저이름"
   action:"white"
 }
 ``` 
+
+게임 타입 변경
+
+```
+{
+  type:"action"
+  action:"typechange"
+  initial: 게임보드
+  size: {
+    w: 가로
+    h: 세로
+  }
+}
+```
 
 게임 시작하기
 
 ```
 {
-  type:"action",
+  type:"action"
   action:"gamestart"
 }
 ```
 
 ### 수신
-
-### info
-
-이 방에 대한 정보를 알려줍니다
-
-```
-{
-  type:"info",
-  participants:참가자들 유저아이디,
-  king:방장 유저아이디,
-  type:게임 타입,
-  status:"ingame" or "preparing"
-}
-```
 
 ### disconnect
 
@@ -164,8 +210,8 @@ keepAlive();
 
 ```
 {
-  type:"disconnect",
-  username:유저아이디,
+  type:"disconnect"
+  username:유저아이디
   next_king:유저아이디 or x
 }
 ```
@@ -176,7 +222,7 @@ keepAlive();
 
 ```
 {
-  type:"connect",
+  type:"connect"
   username:유저아이디
 }
 ```
@@ -188,6 +234,7 @@ keepAlive();
 ```
 {
   type:"gamestart"
+  game:게임id
 }
 ```
 
@@ -204,17 +251,89 @@ keepAlive();
 
 # 게임
 
-/ws/games/{room}
+/ws/games
+
+흑과 백이 모두 한 유저여도 상관이 없습니다. 이 경우 홀수번째 수놓기는 흑이고 짝수번째 수놓기는 백입니다. 다만 이경우는 수무르기가 동작하지 않습니다.
+
+## 자료형
+
+게임보드는 정수들로 이루어진 2차원 배열입니다. 각 숫자가 의미하는 것은 아래와 같습니다
+| 숫자 | 의미 |
+| --- | --- |
+| 0 | 흑돌 |
+| 1 | 백돌 |
+| 2 | 공백 |
+
+
+수는 기보형식으로 된 돌의 위치를 의미합니다. 수는 앞에 a-z까지의 글자와 뒤에 숫자들로 이루어져 있습니다. a는 0을 의미하며 b는 2를 의미하며 ... z는 25를 의미합니다. 1은 0을 의미하며 2는 1을 의미하며 .... 26은 25를 의미합니다. 게임보드[숫자][알파벳]으로 이 위치의 돌을 구할 수 있습니다. 수가 none인 경우도 있는데 이는 둘 수 있는 수가 없어서 넘겨진 것으로 말 그대로 아무 위치도 가르키지 않습니다.
+
+
+히스토리는 게임수들로 이루어진 1차원 배열입니다. 짝수번째의 인덱스의 값들은 흑의 수를 의미하며 홀수번째의 인덱스의 값들은 백의 수를 의미합니다.
 
 ## rest
 
+### 헤더
+
+User-Secret : 유저 시크릿
+
+### 요약 
+
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | /game/{id}/actions | 게임에 뭔짓을 합니다 |
-| GET | /game/{id} | 현재 게임에 대한 정보를 가져옵니다 |
+| GET | /games/{id} | 현재 게임에 대한 정보를 가져옵니다 |
+| POST | /games/{id}/actions | 게임에 뭔짓을 합니다 |
 
+### /games/{id}
+
+#### 응답
+
+```
+{
+  room:방이름
+  board:현재게임보드
+  history:히스토리
+  initial:초기게임보드
+  ids:{
+    black:흑 유저아이디
+    white:백 유저아이디
+  }
+  times:{
+    black:흑 남은시간(초)
+    white:백 남은시간(초)
+  }
+}
+```
+
+### /games/{id}/actions
+
+#### 수놓기
+
+```
+{
+  type:"put"
+  move:수(기보형식)
+}
+```
+
+#### 수무르기 신청
+
+```
+{
+  type:"undo"
+}
+```
+
+#### 수무르기 받아들이기
+
+```
+{
+  type:"undoaccept"
+}
+```
 
 ## websocket
+
+처음 login을 성공적으로 마쳤을 경우 웹소켓은 게임의 변화를 통보합니다.  
 
 ### 송신
 
@@ -252,29 +371,21 @@ keepAlive();
 
 ### login
 
-서버에게 자신이 등록된 클라이언트임을 증명합니다. login이 성공적으로 이루어지지 않았을 경우 프로토콜 사용이 불가능합니다
+서버에게 자신이 등록된 클라이언트임을 증명합니다.
 
 ```
 {
-  type:"login",
+  type:"login"
   secret:"시크릿"
-}
-```
-
-성공응답:
-```
-{
-  type:"success",
-  from:"login"
-  username:"사용자이름"
+  game:"게임id"
 }
 ```
 
 실패응답:
 ```
 {
-  type:"error",
-  from:"login",
+  type:"error"
+  from:"login"
   msg:"에러메세지"
 }
 ```
@@ -287,8 +398,8 @@ keepAlive();
 
 ```
 {
-  type:"turn",
-  color:"black" or "white",
+  type:"turn"
+  color:"black" or "white"
   move:수
 }
 ```
@@ -299,7 +410,7 @@ keepAlive();
 
 ```
 {
-  type:"end",
+  type:"end"
   winner:"black" or "white"
   cause:"원인"
 }
@@ -307,24 +418,37 @@ keepAlive();
 
 ### tick
 
-한 초가 지났음을 의미합니다.
+10초에 한번씩 보내집니다.
 
 ```
 {
-  type:"tick",
-  black_time:흑 남은 시간,
-  white_time:백 남은 시간
+  type:"tick"
+  black_time:흑 남은 시간(초)
+  white_time:백 남은 시간(초)
 }
+```
+
+### undoreq
+
+수무르기를 신청했음을 의미합니다. 만약 색이 상대편의 색이라면 무언가 해줘야합니다.
+
+```
+{
+  type:"undoreq"
+  color:"black" or "white"
+}
+
 ```
 
 ### undo
 
-수를 물렀음을 의미합니다. 수 index로 돌아가야 합니다.
+수무르기에 대한 응답을 의미합니다. 만약 answer가 yes라면 수 index로 돌아가야 합니다.
 
 ```
 {
-  type:"undo",
-  who:"black" or "white",
+  type:"undo"
+  answer:"yes" or "no"
+  color:"black" or "white"
   move: 수index
 }
 ```
