@@ -55,11 +55,18 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := h{
-		"black":   game.Black,
-		"white":   game.White,
+		"room":    "not implemented",
 		"board":   game.Board,
 		"history": game.History,
 		"initial": game.GameType.Initial(),
+		"usernames": h{
+			"black": game.Black,
+			"white": game.White,
+		},
+		"times": h{
+			"black": game.BlackTime,
+			"white": game.WhiteTime,
+		},
 	}
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -5,6 +5,7 @@ type (
 		Name() string
 		Initial() Board
 		Size() Coordinate
+		Time() uint
 	}
 	DefaultOthello struct {
 	}
@@ -33,4 +34,8 @@ func (d DefaultOthello) Initial() Board {
 
 func (d DefaultOthello) Size() Coordinate {
 	return Coordinate{8, 8}
+}
+
+func (d DefaultOthello) Time() uint {
+	return 10
 }

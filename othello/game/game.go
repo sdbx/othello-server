@@ -2,28 +2,36 @@ package game
 
 import (
 	"errors"
+
+	"github.com/olebedev/emitter"
 )
 
 type (
 	h    map[string]interface{}
 	Game struct {
-		Black    string
-		White    string
-		Board    Board
-		History  History
-		GameType GameType
-		gameRoom *gameRoom
+		Black     string
+		White     string
+		BlackTime uint
+		WhiteTime uint
+		Board     Board
+		History   History
+		GameType  GameType
+		Emitter   *emitter.Emitter
+		gameRoom  *gameRoom
 	}
 )
 
 func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) *Game {
 	return &Game{
-		Black:    black,
-		White:    white,
-		Board:    gameType.Initial(),
-		History:  []Move{},
-		GameType: gameType,
-		gameRoom: gameRoom,
+		Black:     black,
+		White:     white,
+		BlackTime: gameType.Time(),
+		WhiteTime: gameType.Time(),
+		Board:     gameType.Initial(),
+		History:   []Move{},
+		Emitter:   &emitter.Emitter{},
+		GameType:  gameType,
+		gameRoom:  gameRoom,
 	}
 }
 
@@ -45,19 +53,40 @@ func (g *Game) NumberOfPossibleMoves(turn Turn) uint {
 	return num
 }
 
-func (g *Game) CheckEnd() (ended bool) {
-	defer func() {
-		if ended {
-			g.gameRoom.emit("end", h{})
-			g.gameRoom.close <- true
+// black / white
+func (g *Game) Total() (int, int) {
+	black := 0
+	white := 0
+	size := g.GameType.Size()
+	for x := 0; x < size.X; x++ {
+		for y := 0; y < size.Y; y++ {
+			if tile := g.GetTile(Coordinate{x, y}); tile == GameTileBlack {
+				black++
+			} else if tile == GameTileWhite {
+				white++
+			}
 		}
-	}()
+	}
+	return black, white
+}
 
+func (g *Game) CheckEnd() bool {
 	if g.NumberOfPossibleMoves(GameTurnBlack) == 0 &&
 		g.NumberOfPossibleMoves(GameTurnWhite) == 0 {
-		return true
-	}
-	if len(g.History) == 60 {
+		black, white := g.Total()
+		winner := ""
+		if black > white {
+			winner = "black"
+		} else if black < white {
+			winner = "white"
+		} else {
+			winner = "drew"
+		}
+		g.gameRoom.emit("end", h{
+			"winner": winner,
+			"cause":  "normally",
+		})
+		<-g.Emitter.Emit("end")
 		return true
 	}
 	return false

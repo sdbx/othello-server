@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -43,7 +44,8 @@ func Start(serv *othello.Service) http.Handler {
 	r.Path("/ws/games").
 		Handler(service.GameStore.WS.Handler()).
 		Name("game websocket")
-	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type"})
+
+	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "X-User-Secret"})
 	cors2 := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 	cors := handlers.AllowedOrigins([]string{"*"})
 	corsed := handlers.CORS(cors, cors2, cors3)(r)
@@ -75,4 +77,5 @@ func errorWrite(w http.ResponseWriter, r *http.Request, err string, from string)
 		Msg:  err,
 		From: from,
 	})
+	fmt.Println(err)
 }

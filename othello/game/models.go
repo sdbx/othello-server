@@ -30,7 +30,7 @@ const (
 	GameTurnWhite = "white"
 )
 
-const MoveNone = "none"
+const MoveNone = "--"
 
 func CordFromMove(move Move) (Coordinate, error) {
 	r := regexp.MustCompile(`^([a-z]+)([0-9]{1})$`)

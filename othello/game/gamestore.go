@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/buger/jsonparser"
 	websocket "github.com/kataras/go-websocket"
+	"github.com/olebedev/emitter"
 	"github.com/sdbx/othello-server/othello/models"
 )
 
@@ -22,14 +24,16 @@ type (
 		room *gameRoom
 	}
 	gameRoom struct {
-		name string
-		game *Game
-		ws   websocket.Server
+		name  string
+		game  *Game
+		store *GameStore
+		ws    websocket.Server
 
 		clients    map[*gameClient]bool
 		register   chan *gameClient
 		unregister chan *gameClient
-		close      chan bool
+		ticker1    *time.Ticker
+		ticker10   *time.Ticker
 	}
 )
 
@@ -53,8 +57,31 @@ func (g *gameRoom) run() {
 			g.clients[client] = true
 		case client := <-g.unregister:
 			delete(g.clients, client)
-		case <-g.close:
-			return
+		case <-g.ticker1.C:
+			if g.game.Turn() == GameTurnBlack {
+				g.game.BlackTime--
+				if g.game.BlackTime == 0 {
+					g.emit("end", h{
+						"winner": "white",
+						"cause":  "timeout",
+					})
+					<-g.game.Emitter.Emit("end")
+				}
+			} else {
+				g.game.WhiteTime--
+				if g.game.WhiteTime == 0 {
+					g.emit("end", h{
+						"winner": "black",
+						"cause":  "timeout",
+					})
+					<-g.game.Emitter.Emit("end")
+				}
+			}
+		case <-g.ticker10.C:
+			g.emit("tick", h{
+				"black": g.game.BlackTime,
+				"white": g.game.WhiteTime,
+			})
 		}
 	}
 }
@@ -70,19 +97,30 @@ func NewGameStore(userStore models.UserStore) *GameStore {
 }
 
 func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) error {
-	log.Println(room, " game created")
+	log.Println(room, "game created")
 	if _, ok := gs.games[room]; ok {
 		return errors.New("game already exist")
 	}
 	gameroom := &gameRoom{
 		name:       room,
+		store:      gs,
 		ws:         gs.WS,
 		clients:    make(map[*gameClient]bool),
 		register:   make(chan *gameClient),
 		unregister: make(chan *gameClient),
-		close:      make(chan bool),
+		ticker1:    time.NewTicker(time.Second),
+		ticker10:   time.NewTicker(time.Second * 10),
 	}
 	gameroom.game = newGame(gameroom, black, white, gameType)
+	gameroom.game.Emitter.On("end", func(e *emitter.Event) {
+		go func() {
+			time.Sleep(time.Second)
+			for _, conn := range gs.WS.GetConnectionsByRoom(room) {
+				conn.Disconnect()
+			}
+			delete(gs.games, room)
+		}()
+	})
 	gs.games[room] = gameroom
 	go gameroom.run()
 	return nil
@@ -113,7 +151,7 @@ func (gs *GameStore) handleConnection(c websocket.Connection) {
 		switch typ {
 		case "ping":
 			c.EmitMessage([]byte(pongMsg))
-		case "login":
+		case "enter":
 			if client.user != nil {
 				c.EmitMessage([]byte(onceMsg))
 				return

@@ -9,8 +9,28 @@
 ### 요약
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| GET | /users/me | 클라이언트의 정보를 가져옵니다 |
+| POST | **/register/test** | 테스트 유저 등록입니다 |
+| POST | /register/naver | 네이버 유저 등록입니다 |
+| GET | **/users/me** | 클라이언트의 정보를 가져옵니다 |
 
+### /register/test
+
+#### 바디
+
+```
+{
+  username: 유저이름
+}
+```
+
+#### 응답
+
+```
+{
+  secret: 유저시크릿
+  username: 유저이름
+} 
+```
 
 ### /users/me
 
@@ -18,10 +38,7 @@
 
 #### 헤더
 
-Naver-Token : 네이버 로그인 api의 토큰입니다
-
-
-User-Secret : 유저 시크릿
+X-User-Secret : 유저 시크릿
 
 #### 응답
 
@@ -38,7 +55,7 @@ User-Secret : 유저 시크릿
 
 ### 헤더
 
-User-Secret : 유저 시크릿
+X-User-Secret : 유저 시크릿
 
 ### 요약
 
@@ -116,7 +133,7 @@ keepAlive();
 ```
 
 
-### login
+### enter
 
 서버에게 자신이 등록된 클라이언트임을 증명합니다. login이 성공적으로 이루어지지 않았을 경우 프로토콜 사용이 불가능합니다
 
@@ -213,8 +230,8 @@ keepAlive();
 ```
 {
   type:"disconnect"
-  username:유저아이디
-  next_king:유저아이디 or x
+  username:유저이름
+  next_king:유저이름 or x
 }
 ```
 
@@ -225,7 +242,7 @@ keepAlive();
 ```
 {
   type:"connect"
-  username:유저아이디
+  username:유저이름
 }
 ```
 
@@ -277,14 +294,15 @@ keepAlive();
 
 ### 헤더
 
-User-Secret : 유저 시크릿
+X-User-Secret : 유저 시크릿
 
 ### 요약 
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| GET | /games/{id} | 현재 게임에 대한 정보를 가져옵니다 |
-| POST | /games/{id}/actions | 게임에 뭔짓을 합니다 |
+| GET | **/games/{id}** | 현재 게임에 대한 정보를 가져옵니다 |
+| POST | **/games/{id}/actions** | 게임에 뭔짓을 합니다 |
+| POST | **/games/{id}** | 게임을 만듭니다(테스트) |
 
 ### /games/{id}
 
@@ -296,20 +314,24 @@ User-Secret : 유저 시크릿
   board:현재게임보드
   history:히스토리
   initial:초기게임보드
-  ids:{
-    black:흑 유저아이디
-    white:백 유저아이디
+  usernames:{
+    black:흑 유저이름
+    white:백 유저이름
   }
   times:{
     black:흑 남은시간(초)
     white:백 남은시간(초)
+  }
+  total: {
+    black: 흑돌수
+    white: 백돌수
   }
 }
 ```
 
 ### /games/{id}/actions
 
-#### 수놓기
+#### **수놓기**
 
 ```
 {
@@ -326,11 +348,12 @@ User-Secret : 유저 시크릿
 }
 ```
 
-#### 수무르기 받아들이기
+#### 수무르기 응답
 
 ```
 {
-  type:"undoaccept"
+  type:"undo_answer"
+  answer:"yes" or "no"
 }
 ```
 
@@ -340,7 +363,7 @@ User-Secret : 유저 시크릿
 
 ### 송신
 
-### ping
+### **ping**
 
 핑!
 
@@ -372,7 +395,7 @@ keepAlive();
 ```
 
 
-### login
+### **enter**
 
 서버에게 자신이 등록된 클라이언트임을 증명합니다.
 
@@ -395,7 +418,7 @@ keepAlive();
 
 ### 수신
 
-### turn
+### **turn**
 
 턴이 넘어갔음을 의미합니다
 
@@ -407,7 +430,7 @@ keepAlive();
 }
 ```
 
-### end
+### **end**
 
 게임이 끝났음을 의미합니다.
 
@@ -416,34 +439,38 @@ keepAlive();
   type:"end"
   winner:"black" or "white"
   cause:"원인"
+  total: {
+    black: 흑돌수
+    white: 백돌수
+  }
 }
 ```
 
-### tick
+### **tick**
 
 10초에 한번씩 보내집니다.
 
 ```
 {
   type:"tick"
-  black_time:흑 남은 시간(초)
-  white_time:백 남은 시간(초)
+  black:흑 남은 시간(초)
+  white:백 남은 시간(초)
 }
 ```
 
-### undoreq
+### undo
 
 수무르기를 신청했음을 의미합니다. 만약 색이 상대편의 색이라면 무언가 해줘야합니다.
 
 ```
 {
-  type:"undoreq"
+  type:"undo"
   color:"black" or "white"
 }
 
 ```
 
-### undo
+### undo_answer
 
 수무르기에 대한 응답을 의미합니다. 만약 answer가 yes라면 수 index로 돌아가야 합니다.
 
