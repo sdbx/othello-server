@@ -22,7 +22,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := request.Username
-	if service.UserStore.GetUserByName(name) != nil {
+	if service.UserStore.GetUserByID(name) != nil {
 		errorWrite(w, r, "username already exist", "RegisterHandler")
 		return
 	}

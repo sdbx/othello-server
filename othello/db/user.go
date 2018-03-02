@@ -8,8 +8,7 @@ import (
 )
 
 type (
-	DBUserStore struct {
-	}
+	DBUserStore map[string]*models.User
 )
 
 var letterRunes = []rune("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_")
@@ -23,15 +22,37 @@ func genKey(length int) string {
 }
 
 func (us *DBUserStore) Register(username string) string {
+	if len(username) == 0 {
+		return ""
+	}
+
+	for _, item := range *us {
+		if item.Name == username {
+			return ""
+		}
+	}
+
 	key := genKey(10)
+	(*us)[key] = &models.User{
+		Name:   username,
+		Secret: key,
+	}
 	return key
 }
 
-func (us *DBUserStore) GetUserByName(username string) *models.User {
-
+func (us *DBUserStore) GetUserByID(username string) *models.User {
+	for _, item := range *us {
+		if username == item.Name {
+			return item
+		}
+	}
 	return nil
 }
 
 func (us *DBUserStore) GetUserBySecret(secret string) *models.User {
-	return nil
+	if user, ok := (*us)[secret]; !ok {
+		return nil
+	} else {
+		return user
+	}
 }

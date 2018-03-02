@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/sdbx/othello-server/othello"
+	"github.com/sdbx/othello-server/othello/game"
 )
 
 type actionsPutRequest struct {
@@ -14,7 +14,7 @@ type actionsPutRequest struct {
 	Move   string `json:"move"`
 }
 
-func actionsPut(w http.ResponseWriter, r *http.Request, game *othello.Game, bytes []byte) {
+func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []byte) {
 	req := actionsPutRequest{}
 	err := json.Unmarshal(bytes, &req)
 	if err != nil {
@@ -26,16 +26,16 @@ func actionsPut(w http.ResponseWriter, r *http.Request, game *othello.Game, byte
 		errorWrite(w, r, "user doesn't exist", "actionsPut")
 		return
 	}
-	cord, err := othello.CordFromMove(othello.Move(req.Move))
+	cord, err := game.CordFromMove(game.Move(req.Move))
 	fmt.Println(cord)
 	if err != nil {
 		errorWrite(w, r, err.Error(), "actionsPut")
 		return
 	}
-	if game.Black == user.Name {
-		err = game.Put(cord, othello.GameTileBlack)
-	} else if game.White == user.Name {
-		err = game.Put(cord, othello.GameTileWhite)
+	if gam.Black == user.Name {
+		err = gam.Put(cord, game.GameTileBlack)
+	} else if gam.White == user.Name {
+		err = gam.Put(cord, game.GameTileWhite)
 	} else {
 		errorWrite(w, r, "you are not a player", "actionsPut")
 		return

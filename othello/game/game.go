@@ -45,11 +45,19 @@ func (g *Game) NumberOfPossibleMoves(turn Turn) uint {
 	return num
 }
 
-func (g *Game) CheckEnd() bool {
+func (g *Game) CheckEnd() (ended bool) {
+	defer func() {
+		if ended {
+			g.gameRoom.emit("end", h{})
+			g.gameRoom.close <- true
+		}
+	}()
+
 	if g.NumberOfPossibleMoves(GameTurnBlack) == 0 &&
 		g.NumberOfPossibleMoves(GameTurnWhite) == 0 {
-		g.gameRoom.emit("end", h{})
-		g.gameRoom.close <- true
+		return true
+	}
+	if len(g.History) == 60 {
 		return true
 	}
 	return false

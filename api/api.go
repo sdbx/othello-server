@@ -25,11 +25,6 @@ func Start(serv *othello.Service) http.Handler {
 		Methods("POST").
 		Name("register")
 
-	r.Path("/games").
-		HandlerFunc(gameListHandler).
-		Methods("GET").
-		Name("game list")
-
 	r.Path("/games/{game}").
 		HandlerFunc(gameGetHandler).
 		Methods("GET").

@@ -7,10 +7,10 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/mux"
-	"github.com/sdbx/othello-server/othello"
+	"github.com/sdbx/othello-server/othello/game"
 )
 
-type actionFunc func(w http.ResponseWriter, r *http.Request, game *othello.Game, bytes []byte)
+type actionFunc func(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []byte)
 
 var actions = map[string]actionFunc{
 	"put": actionsPut,
@@ -18,20 +18,6 @@ var actions = map[string]actionFunc{
 
 type BriefRoom struct {
 	Name string `json:"name"`
-}
-
-func gameListHandler(w http.ResponseWriter, r *http.Request) {
-	list := []BriefRoom{}
-	for _, item := range service.GameStore.ListGames() {
-		list = append(list, BriefRoom{
-			Name: item,
-		})
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(h{
-		"games": list,
-	})
 }
 
 type gameCreateRequest struct {
@@ -52,7 +38,7 @@ func gameCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, othello.DefaultOthello{})
+	err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, game.DefaultOthello{})
 	if err != nil {
 		errorWrite(w, r, err.Error(), "gameCreateHandler")
 		return
