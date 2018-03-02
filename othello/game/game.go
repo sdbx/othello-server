@@ -1,17 +1,20 @@
-package othello
+package game
 
 import (
 	"errors"
 )
 
-type Game struct {
-	Black    string
-	White    string
-	Board    Board
-	History  History
-	GameType GameType
-	gameRoom *gameRoom
-}
+type (
+	h    map[string]interface{}
+	Game struct {
+		Black    string
+		White    string
+		Board    Board
+		History  History
+		GameType GameType
+		gameRoom *gameRoom
+	}
+)
 
 func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) *Game {
 	return &Game{
@@ -138,7 +141,7 @@ func (g *Game) PossibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
 		ttile := g.GetTile(temp)
 		if !start {
 			if ttile != opp {
-				return false
+				break
 			}
 			start = true
 			continue
@@ -147,7 +150,7 @@ func (g *Game) PossibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
 			return true
 		}
 		if ttile != opp {
-			return false
+			break
 		}
 	}
 	return false

@@ -48,8 +48,10 @@ func Start(serv *othello.Service) http.Handler {
 	r.Path("/ws/games").
 		Handler(service.GameStore.WS.Handler()).
 		Name("game websocket")
+	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type"})
+	cors2 := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 	cors := handlers.AllowedOrigins([]string{"*"})
-	corsed := handlers.CORS(cors)(r)
+	corsed := handlers.CORS(cors, cors2, cors3)(r)
 	return handlers.LoggingHandler(os.Stdout, corsed)
 }
 

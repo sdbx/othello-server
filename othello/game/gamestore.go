@@ -1,4 +1,4 @@
-package othello
+package game
 
 import (
 	"encoding/json"
@@ -8,16 +8,17 @@ import (
 
 	"github.com/buger/jsonparser"
 	websocket "github.com/kataras/go-websocket"
+	"github.com/sdbx/othello-server/othello/models"
 )
 
 type (
 	GameStore struct {
 		WS        websocket.Server
-		userStore *UserStore
+		userStore models.UserStore
 		games     map[string]*gameRoom
 	}
 	gameClient struct {
-		user *User
+		user *models.User
 		room *gameRoom
 	}
 	gameRoom struct {
@@ -58,7 +59,7 @@ func (g *gameRoom) run() {
 	}
 }
 
-func NewGameStore(userStore *UserStore) *GameStore {
+func NewGameStore(userStore models.UserStore) *GameStore {
 	gs := &GameStore{
 		WS:        websocket.New(websocket.Config{}),
 		userStore: userStore,
@@ -66,15 +67,6 @@ func NewGameStore(userStore *UserStore) *GameStore {
 	}
 	gs.WS.OnConnection(gs.handleConnection)
 	return gs
-}
-
-// for test
-func (gs *GameStore) ListGames() []string {
-	list := []string{}
-	for key := range gs.games {
-		list = append(list, key)
-	}
-	return list
 }
 
 func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) error {

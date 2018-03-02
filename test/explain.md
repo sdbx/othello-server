@@ -75,7 +75,7 @@ http://127.0.0.1:8080/ws/games
 ## 수가 놓아졋을시(수신)
 ```
 {
-    "type":"put",
+    "type":"turn",
     "move":수,
     "color":색깔
 }

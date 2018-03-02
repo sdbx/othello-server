@@ -1,14 +1,18 @@
 package othello
 
-type h map[string]interface{}
+import (
+	"github.com/sdbx/othello-server/othello/db"
+	"github.com/sdbx/othello-server/othello/game"
+	"github.com/sdbx/othello-server/othello/models"
+)
 
 type Service struct {
-	UserStore *UserStore
-	GameStore *GameStore
+	UserStore models.UserStore
+	GameStore *game.GameStore
 }
 
 func NewService() *Service {
-	var userStore UserStore = map[string]*User{}
+	var userStore UserStore = db.UserDB{}
 	return &Service{
 		UserStore: &userStore,
 		GameStore: NewGameStore(&userStore),

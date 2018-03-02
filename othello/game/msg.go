@@ -1,4 +1,4 @@
-package othello
+package game
 
 const jsonErrorMsg = `
 {

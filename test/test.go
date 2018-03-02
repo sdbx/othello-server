@@ -1,12 +1,18 @@
 package main
 
 import (
-	"fmt"
-	"regexp"
+	"database/sql"
+	"log"
+
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
 func main() {
-	r := regexp.MustCompile(`^([a-z]+)([0-9]{1})$`)
-	fmt.Println(r.FindStringSubmatch("d5"))
+	db, err := sql.Open("postgres", "postgres://test:1234@localhost/test?sslmode=disable")
+	defer db.Close()
+	err = db.Ping()
+	if err != nil {
+		log.Fatal("Error: Could not establish a connection with the database")
+	}
 
 }

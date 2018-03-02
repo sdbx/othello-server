@@ -67,19 +67,13 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 		errorWrite(w, r, "game doesn't exist", "gameGetHandler")
 		return
 	}
-	list := [8][8]uint{}
-	for i := 0; i < 8; i++ {
-		for j := 0; j < 8; j++ {
-			list[i][j] = uint(game.GetTile(othello.Coordinate{j, i}))
-		}
-	}
+
 	resp := h{
 		"black":   game.Black,
 		"white":   game.White,
 		"board":   game.Board,
 		"history": game.History,
 		"initial": game.GameType.Initial(),
-		"list":    list,
 	}
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -111,12 +105,3 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 		action(w, r, game, bytes)
 	}
 }
-
-[2,2,2,2,2,2,2,2],
-[2,2,2,2,2,2,2,2]
-,[2,2,2,2,2,2,2,2],
-[2,2,2,1,0,2,2,2],
-[2,2,2,0,1,0,2,2],
-[2,2,2,2,2,2,2,2],
-[2,2,2,2,2,2,2,2],
-[2,2,2,2,2,2,2,2]

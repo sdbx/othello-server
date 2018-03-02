@@ -1,4 +1,4 @@
-package othello
+package game
 
 import (
 	"errors"
@@ -9,9 +9,9 @@ import (
 type (
 	History    []Move
 	Board      [][]Tile
-	Move       string
-	Turn       string
 	Tile       uint
+	Turn       string
+	Move       string
 	Coordinate struct {
 		X int
 		Y int
