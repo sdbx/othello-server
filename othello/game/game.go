@@ -7,7 +7,6 @@ import (
 )
 
 type (
-	h    map[string]interface{}
 	Game struct {
 		Black     string
 		White     string
@@ -70,6 +69,26 @@ func (g *Game) Total() (int, int) {
 	return black, white
 }
 
+func (g *Game) TimeCount() {
+	if g.Turn() == GameTurnBlack {
+		g.BlackTime--
+		if g.BlackTime == 0 {
+			<-g.Emitter.Emit("end", h{
+				"winner": "white",
+				"cause":  "timeout",
+			})
+		}
+	} else {
+		g.WhiteTime--
+		if g.WhiteTime == 0 {
+			<-g.Emitter.Emit("end", h{
+				"winner": "black",
+				"cause":  "timeout",
+			})
+		}
+	}
+}
+
 func (g *Game) CheckEnd() bool {
 	if g.NumberOfPossibleMoves(GameTurnBlack) == 0 &&
 		g.NumberOfPossibleMoves(GameTurnWhite) == 0 {
@@ -82,11 +101,10 @@ func (g *Game) CheckEnd() bool {
 		} else {
 			winner = "drew"
 		}
-		g.gameRoom.emit("end", h{
+		<-g.Emitter.Emit("end", h{
 			"winner": winner,
 			"cause":  "normally",
 		})
-		<-g.Emitter.Emit("end")
 		return true
 	}
 	return false
@@ -102,7 +120,7 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 	}
 	g.put(cord, tile)
 	move := cord.ToMove()
-	g.gameRoom.emit("turn", h{
+	<-g.Emitter.Emit("turn", h{
 		"color": turn,
 		"move":  move,
 	})
@@ -112,9 +130,9 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 	}
 	if g.NumberOfPossibleMoves(turn.GetOpp()) == 0 {
 		g.History = append(g.History, MoveNone)
-		g.gameRoom.emit("turn", h{
+		<-g.Emitter.Emit("turn", h{
 			"color": turn.GetOpp(),
-			"move":  "none",
+			"move":  "--",
 		})
 	}
 	return nil

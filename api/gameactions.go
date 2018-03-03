@@ -21,35 +21,28 @@ func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []
 		errorWrite(w, r, err.Error(), "actionsPut")
 		return
 	}
-	fmt.Println(secret)
-	fmt.Println(req.Move)
 	user := service.UserStore.GetUserBySecret(secret)
 	if user == nil {
 		errorWrite(w, r, "user doesn't exist", "actionsPut")
 		return
 	}
 	cord, err := game.CordFromMove(game.Move(req.Move))
+	fmt.Println(cord)
 	if err != nil {
 		errorWrite(w, r, err.Error(), "actionsPut")
 		return
 	}
 	if gam.Black == user.Name {
 		err = gam.Put(cord, game.GameTileBlack)
-		if err != nil {
-			errorWrite(w, r, err.Error(), "actionsPut")
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	if gam.White == user.Name {
+	} else if gam.White == user.Name {
 		err = gam.Put(cord, game.GameTileWhite)
-		if err != nil {
-			errorWrite(w, r, err.Error(), "actionsPut")
-			return
-		}
-		w.WriteHeader(http.StatusOK)
+	} else {
+		errorWrite(w, r, "you are not a player", "actionsPut")
 		return
 	}
-	errorWrite(w, r, "you are not a player", "actionsPut")
+	if err != nil {
+		errorWrite(w, r, err.Error(), "actionsPut")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

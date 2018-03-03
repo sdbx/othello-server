@@ -37,5 +37,5 @@ func (d DefaultOthello) Size() Coordinate {
 }
 
 func (d DefaultOthello) Time() uint {
-	return 10
+	return ^uint(0)
 }

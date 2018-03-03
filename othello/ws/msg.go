@@ -1,4 +1,4 @@
-package game
+package ws
 
 const jsonErrorMsg = `
 {
@@ -29,18 +29,18 @@ const userNoMsg = `
 }
 `
 
-const roomNoMsg = `
+const gameNoMsg = `
 {
 	"type":"error",
-	"from":"%s",
-	"msg":"room doesn't exist"
+	"from":"enter",
+	"msg":"game doesn't exist"
 }
 `
 
 const onceMsg = `
 {
 	"type":"error",
-	"from":"login",
+	"from":"enter",
 	"msg":"login should be occured once in a session"
 }
 `

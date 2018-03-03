@@ -38,7 +38,7 @@ func gameCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vars := mux.Vars(r)
-	err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, game.DefaultOthello{})
+	_, err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, game.DefaultOthello{})
 	if err != nil {
 		errorWrite(w, r, err.Error(), "gameCreateHandler")
 		return
