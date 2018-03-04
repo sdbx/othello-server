@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/sdbx/othello-server/api"
 	"github.com/sdbx/othello-server/othello"

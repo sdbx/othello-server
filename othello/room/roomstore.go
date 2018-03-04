@@ -1,141 +1,66 @@
 package room
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
+	"sync"
 
-	"github.com/buger/jsonparser"
-	websocket "github.com/kataras/go-websocket"
 	"github.com/sdbx/othello-server/othello/models"
+	"github.com/sdbx/othello-server/othello/ws"
 )
 
 type (
-	h         map[string]interface{}
+	State     uint
 	RoomStore struct {
-		WS        websocket.Server
-		userStore models.UserStore
-		rooms     map[string]*Room
-	}
-	roomClient struct {
-		user *models.User
-		room *Room
+		sync.Mutex
+		*ws.WSStore
 	}
 	Room struct {
-		Name  string
-		store *RoomStore
-		ws    websocket.Server
-
-		clients    map[*roomClient]bool
-		register   chan *roomClient
-		unregister chan *roomClient
+		*ws.WSRoom
+		Participants uint
+		State        State
+		Black        string
+		White        string
+		King         string
 	}
 )
 
+const (
+	StateReady State = iota
+	StateGame
+)
+
 func NewRoomStore(userStore models.UserStore) *RoomStore {
-	return &RoomStore{
-		WS:        websocket.New(websocket.Config{}),
-		userStore: userStore,
-		rooms:     make(map[string]*Room),
+	rs := &RoomStore{
+		WSStore: ws.NewWSStore(userStore),
 	}
+	rs.Handlers["enter"] = rs.enterHandler
+	return rs
 }
 
-func (r *Room) emitMessage(message []byte) {
-	log.Println("websocket sent from", r.name, ":", string(message))
-	for _, con := range r.ws.GetConnectionsByRoom(r.name) {
-		con.EmitMessage(message)
-	}
-}
-
-func (r *Room) emit(typ string, ho h) {
-	ho["type"] = typ
-	content, _ := json.Marshal(ho)
-	r.emitMessage(content)
-}
-
-func (rs *RoomStore) CreateGame(roomn string) (*Room, error) {
+func (rs *RoomStore) CreateRoom(roomn string) error {
 	log.Println(roomn, "room created")
-	if _, ok := rs.rooms[roomn]; ok {
-		return nil, errors.New("room already exist")
+	rs.Lock()
+	if _, ok := rs.Rooms[roomn]; ok {
+		return errors.New("room already exist")
 	}
 	room := &Room{
-		Name:       roomn,
-		store:      rs,
-		ws:         rs.WS,
-		clients:    make(map[*roomClient]bool),
-		register:   make(chan *roomClient),
-		unregister: make(chan *roomClient),
+		WSRoom:       ws.NewWSRoom(roomn, rs.WSStore),
+		State:        StateReady,
+		Participants: 0,
 	}
-	go room.run()
-	return room, nil
+	rs.Rooms[roomn] = room
+	rs.Unlock()
+	go room.Run()
+	return nil
 }
 
-func (r *Room) run() {
-	for {
-		select {
-		case client := <-r.register:
-			r.clients[client] = true
-		case client := <-r.unregister:
-			delete(r.clients, client)
-		}
-	}
+func (r *Room) Register(cli *ws.Client) {
+	r.Participants++
+	r.WSRoom.Register(cli)
 }
 
-type loginRequest struct {
-	Type   string `json:"type"`
-	Secret string `json:"secret"`
-	Room   string `json:"room"`
-}
-
-// 중복 실화?
-func (rs *RoomStore) handleConnection(c websocket.Connection) {
-	client := &roomClient{}
-	c.OnMessage(func(message []byte) {
-		log.Println("websocket recieved:", string(message))
-		typ, err := jsonparser.GetString(message, "type")
-		if err != nil {
-			c.EmitMessage([]byte(jsonErrorMsg))
-			return
-		}
-		switch typ {
-		case "ping":
-			c.EmitMessage([]byte(pongMsg))
-		case "enter":
-			if client.user != nil {
-				c.EmitMessage([]byte(onceMsg))
-				return
-			}
-			req := loginRequest{}
-			err = json.Unmarshal(message, &req)
-			if err != nil {
-				c.EmitMessage([]byte(jsonErrorMsg))
-				return
-			}
-			user := rs.userStore.GetUserBySecret(req.Secret)
-			if user == nil {
-				c.EmitMessage([]byte(fmt.Sprintf(userNoMsg, "enter")))
-				return
-			}
-			room, ok := rs.rooms[req.Room]
-			if !ok {
-				c.EmitMessage([]byte(fmt.Sprintf(gameNoMsg)))
-				return
-			}
-			client.user = user
-			client.room = room
-			c.Join(room.Name)
-			room.emitMessage([]byte(fmt.Sprintf(connectMsg, client.user.Name)))
-			room.register <- client
-		default:
-			c.EmitMessage([]byte(typeErrorMsg))
-		}
-	})
-
-	c.OnDisconnect(func() {
-		if client.room != nil {
-			client.room.emitMessage([]byte(fmt.Sprintf(disconnectMsg, client.user.Name)))
-			client.room.unregister <- client
-		}
-	})
+func (r *Room) Unregister(cli *ws.Client) {
+	r.Participants--
+	r.WSRoom.Unregister(cli)
 }

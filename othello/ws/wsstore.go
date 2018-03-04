@@ -2,6 +2,8 @@ package ws
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -13,26 +15,29 @@ import (
 type (
 	H      map[string]interface{}
 	Client struct {
-		user *models.User
-		room Room
+		User       *models.User
+		Room       Room
+		Connection websocket.Connection
 	}
 
 	Room interface {
 		Name() string
-		Register() chan *Client
-		Unregister() chan *Client
+		Register(*Client)
+		Unregister(*Client)
 		Emit(string, H)
 		Store() *WSStore
+		GetClientsByName(name string) []*Client
 	}
 
 	WSRoom struct {
-		Clients     map[*Client]bool
+		_clients    map[string]map[*Client]bool
 		_name       string
 		_store      *WSStore
 		_register   chan *Client
 		_unregister chan *Client
+		_close      chan bool
 	}
-	WSListenHandler func(websocket.Connection, *Client, []byte)
+	WSListenHandler func(*Client, []byte)
 	WSStore         struct {
 		WS        websocket.Server
 		Handlers  map[string]WSListenHandler
@@ -40,6 +45,10 @@ type (
 		Rooms     map[string]Room
 	}
 )
+
+func (cli *Client) EmitError(msg string, from string) {
+	cli.Connection.EmitMessage([]byte(fmt.Sprintf(`{"type":"error","msg":"%s","from":"%s"}`, msg, from)))
+}
 
 func NewWSStore(userStore models.UserStore) *WSStore {
 	gs := &WSStore{
@@ -49,13 +58,29 @@ func NewWSStore(userStore models.UserStore) *WSStore {
 		Handlers:  make(map[string]WSListenHandler),
 	}
 	gs.Handlers["ping"] = WSPingHandler
-	gs.Handlers["enter"] = WSEnterHandler
 	gs.WS.OnConnection(gs.handleConnection)
 	return gs
 }
 
+const jsonErrorMsg = `
+{
+	"type":"error",
+	"msg":"json error",
+	"from":"none"
+}
+`
+const typeErrorMsg = `
+{
+	"type":"error",
+	"msg":"no such type",
+	"from":"none"
+}
+`
+
 func (rs *WSStore) handleConnection(c websocket.Connection) {
-	client := &Client{}
+	client := &Client{
+		Connection: c,
+	}
 	c.OnMessage(func(message []byte) {
 		log.Println("websocket recieved:", string(message))
 		typ, err := jsonparser.GetString(message, "type")
@@ -63,35 +88,67 @@ func (rs *WSStore) handleConnection(c websocket.Connection) {
 			c.EmitMessage([]byte(jsonErrorMsg))
 			return
 		}
+		fmt.Println(rs.Handlers)
 		if fun, ok := rs.Handlers[typ]; !ok {
 			c.EmitMessage([]byte(typeErrorMsg))
 			return
 		} else {
-			fun(c, client, message)
+			fun(client, message)
 		}
 	})
 	c.OnDisconnect(func() {
-		if client.room != nil {
-			client.room.Emit("disconnect", H{
-				"username": client.user.Name,
+		if client.Room != nil {
+			client.Room.Emit("disconnect", H{
+				"username": client.User.Name,
 			})
-			client.room.Unregister() <- client
+			client.Room.Unregister(client)
 		}
 	})
+}
+
+func (r *WSStore) Enter(cli *Client, user *models.User, roomn string) error {
+	if cli.User != nil {
+		return errors.New("enter should be occured once in a session")
+	}
+	room, ok := r.Rooms[roomn]
+	if !ok {
+		return errors.New("no such room")
+	}
+	cli.User = user
+	cli.Room = room
+	cli.Connection.Join(room.Name())
+	room.Emit("connect", H{
+		"username": user.Name,
+	})
+	room.Register(cli)
+	return nil
 }
 
 func NewWSRoom(name string, store *WSStore) *WSRoom {
 	return &WSRoom{
-		Clients:     make(map[*Client]bool),
+		_clients:    make(map[string]map[*Client]bool),
 		_name:       name,
 		_store:      store,
 		_register:   make(chan *Client),
 		_unregister: make(chan *Client),
+		_close:      make(chan bool),
 	}
+}
+
+func (r *WSRoom) GetClientsByName(name string) []*Client {
+	if clili, ok := r._clients[name]; ok {
+		list := []*Client{}
+		for cli := range clili {
+			list = append(list, cli)
+		}
+		return list
+	}
+	return []*Client{}
 }
 
 func (r *WSRoom) Close() {
 	go func() {
+		r._close <- true
 		time.Sleep(time.Second)
 		for _, conn := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
 			conn.Disconnect()
@@ -113,9 +170,16 @@ func (r *WSRoom) Run() {
 	for {
 		select {
 		case client := <-r._register:
-			r.Clients[client] = true
+			name := client.User.Name
+			_, ok := r._clients[name]
+			if !ok {
+				r._clients[name] = make(map[*Client]bool)
+			}
+			r._clients[name][client] = true
 		case client := <-r._unregister:
-			delete(r.Clients, client)
+			delete(r._clients[client.User.Name], client)
+		case <-r._close:
+			return
 		}
 	}
 }
@@ -124,14 +188,14 @@ func (r *WSRoom) Name() string {
 	return r._name
 }
 
-func (r *WSRoom) Register() chan *Client {
-	return r._register
-}
-
-func (r *WSRoom) Unregister() chan *Client {
-	return r._unregister
-}
-
 func (r *WSRoom) Store() *WSStore {
 	return r._store
+}
+
+func (r *WSRoom) Register(cli *Client) {
+	r._register <- cli
+}
+
+func (r *WSRoom) Unregister(cli *Client) {
+	r._unregister <- cli
 }

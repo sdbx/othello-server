@@ -1,8 +1,10 @@
 package game
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/sdbx/othello-server/othello/models"
@@ -10,8 +12,8 @@ import (
 )
 
 type (
-	h         map[string]interface{}
 	GameStore struct {
+		sync.Mutex
 		*ws.WSStore
 	}
 	gameClient struct {
@@ -30,6 +32,7 @@ func NewGameStore(userStore models.UserStore) *GameStore {
 	gs := &GameStore{
 		WSStore: ws.NewWSStore(userStore),
 	}
+	gs.WSStore.Handlers["enter"] = gs.enterHandler
 	return gs
 }
 
@@ -45,7 +48,9 @@ func (gs *GameStore) CreateGame(room string, black string, white string, gameTyp
 	}
 	gam := newGame(gameroom, black, white, gameType)
 	gameroom.game = gam
+	gs.Lock()
 	gs.Rooms[room] = gameroom
+	gs.Unlock()
 	go gameroom.Run()
 	go gameroom.runGame()
 	return gam, nil
@@ -59,6 +64,7 @@ func (g *gameRoom) runGame() {
 		case event := <-end:
 			g.Emit("end", event.Args[0].(ws.H))
 			g.Close()
+			return
 		case event := <-turn:
 			g.Emit("turn", event.Args[0].(ws.H))
 		case <-g.ticker1.C:
@@ -77,4 +83,45 @@ func (gs *GameStore) GetGame(room string) *Game {
 		return groom.(*gameRoom).game
 	}
 	return nil
+}
+
+type enterRequest struct {
+	_      string `json:"type"`
+	Secret string `json:"secret"`
+	Game   string `json:"game"`
+}
+
+const jsonErrorMsg = `
+{
+	"type":"error",
+	"msg":"json error",
+	"from":"none"
+}
+`
+const enterErrorMsg = `
+{
+	"type":"error",
+	"msg":"%s",
+	"from":"enter"
+}
+`
+
+func (gs *GameStore) enterHandler(cli *ws.Client, message []byte) {
+	req := enterRequest{}
+	err := json.Unmarshal(message, &req)
+	if err != nil {
+		cli.EmitError("json error", "enter")
+		return
+	}
+	user := gs.UserStore.GetUserBySecret(req.Secret)
+	if user == nil {
+		cli.EmitError("user doesn't exist", "enter")
+		return
+	}
+	err = gs.Enter(cli, user, req.Game)
+	if err != nil {
+		cli.EmitError(err.Error(), "enter")
+		return
+	}
+
 }

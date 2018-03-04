@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/olebedev/emitter"
+	"github.com/sdbx/othello-server/othello/ws"
 )
 
 type (
@@ -73,7 +74,7 @@ func (g *Game) TimeCount() {
 	if g.Turn() == GameTurnBlack {
 		g.BlackTime--
 		if g.BlackTime == 0 {
-			<-g.Emitter.Emit("end", h{
+			<-g.Emitter.Emit("end", ws.H{
 				"winner": "white",
 				"cause":  "timeout",
 			})
@@ -81,7 +82,7 @@ func (g *Game) TimeCount() {
 	} else {
 		g.WhiteTime--
 		if g.WhiteTime == 0 {
-			<-g.Emitter.Emit("end", h{
+			<-g.Emitter.Emit("end", ws.H{
 				"winner": "black",
 				"cause":  "timeout",
 			})
@@ -101,7 +102,7 @@ func (g *Game) CheckEnd() bool {
 		} else {
 			winner = "drew"
 		}
-		<-g.Emitter.Emit("end", h{
+		<-g.Emitter.Emit("end", ws.H{
 			"winner": winner,
 			"cause":  "normally",
 		})
@@ -120,17 +121,17 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 	}
 	g.put(cord, tile)
 	move := cord.ToMove()
-	<-g.Emitter.Emit("turn", h{
+	g.History = append(g.History, move)
+	<-g.Emitter.Emit("turn", ws.H{
 		"color": turn,
 		"move":  move,
 	})
-	g.History = append(g.History, move)
 	if g.CheckEnd() {
 		return nil
 	}
 	if g.NumberOfPossibleMoves(turn.GetOpp()) == 0 {
 		g.History = append(g.History, MoveNone)
-		<-g.Emitter.Emit("turn", h{
+		<-g.Emitter.Emit("turn", ws.H{
 			"color": turn.GetOpp(),
 			"move":  "--",
 		})
