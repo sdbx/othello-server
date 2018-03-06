@@ -32,7 +32,12 @@ const (
 
 const MoveNone = "--"
 
+var CordNone = Coordinate{-1, -1}
+
 func CordFromMove(move Move) (Coordinate, error) {
+	if move == MoveNone {
+		return CordNone, nil
+	}
 	r := regexp.MustCompile(`^([a-z]+)([0-9]{1})$`)
 	arr := r.FindStringSubmatch(string(move))
 	if len(arr) != 3 {
@@ -44,6 +49,9 @@ func CordFromMove(move Move) (Coordinate, error) {
 }
 
 func (c Coordinate) ToMove() Move {
+	if c == CordNone {
+		return MoveNone
+	}
 	y := strconv.Itoa(c.Y + 1)
 	return Move(string(c.X+'a') + y)
 }

@@ -352,7 +352,7 @@ X-User-Secret : 유저 시크릿
 ```
 {
   type:"undo_answer"
-  answer:"yes" or "no"
+  answer:true or false
 }
 ```
 
@@ -475,9 +475,8 @@ keepAlive();
 
 ```
 {
-  type:"undo"
-  answer:"yes" or "no"
-  color:"black" or "white"
-  move: 수index
+  type:"undo_answer"
+  answer:true or false
+  index: 수index
 }
 ```

@@ -9,7 +9,7 @@
 - [x] /games/{id} get
 - [x] /games/{id}/actions put
 - [ ] /games/{id}/actions undo
-- [ ] /games/{id}/actions undo_accept
+- [ ] /games/{id}/actions undo_answer
 
 __games/{id} post__ deprecated
 
@@ -26,7 +26,7 @@ __games/{id} post__ deprecated
 - [x] end
 - [x] tick
 - [ ] undo
-- [ ] undo_accept
+- [ ] undo_answer
 
 ## websocket 방
 

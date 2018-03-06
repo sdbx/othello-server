@@ -18,6 +18,8 @@ type (
 		GameType  GameType
 		Emitter   *emitter.Emitter
 		gameRoom  *gameRoom
+		undoing   bool
+		undoIndex int
 	}
 )
 
@@ -90,6 +92,47 @@ func (g *Game) TimeCount() {
 	}
 }
 
+func (g *Game) UndoReq(turn Turn) {
+	if !g.undoing {
+		if g.Turn() == turn {
+			g.undoIndex = len(g.History) - 2
+		} else {
+			g.undoIndex = len(g.History) - 1
+		}
+		g.undoing = true
+		<-g.Emitter.Emit("undo", ws.H{
+			"index": g.undoIndex,
+			"color": turn,
+		})
+	}
+}
+
+func (g *Game) GoBackTo(index int) {
+	if index > len(g.History) {
+		return
+	}
+	g.History = g.History[:index]
+	g.Board = g.GameType.Initial()
+	tile := GameTileBlack
+	for _, mv := range g.History {
+		cord, _ := CordFromMove(mv)
+		g.put(cord, tile)
+		tile = tile.GetFlip()
+	}
+}
+
+func (g *Game) UndoAnswer(ok bool) {
+	if ok {
+		g.GoBackTo(g.undoIndex)
+	}
+	g.undoing = false
+	<-g.Emitter.Emit("undo_answer", ws.H{
+		"ok":    ok,
+		"index": g.undoIndex,
+	})
+
+}
+
 func (g *Game) CheckEnd() bool {
 	if g.NumberOfPossibleMoves(GameTurnBlack) == 0 &&
 		g.NumberOfPossibleMoves(GameTurnWhite) == 0 {
@@ -133,13 +176,16 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 		g.History = append(g.History, MoveNone)
 		<-g.Emitter.Emit("turn", ws.H{
 			"color": turn.GetOpp(),
-			"move":  "--",
+			"move":  MoveNone,
 		})
 	}
 	return nil
 }
 
 func (g *Game) put(cord Coordinate, tile Tile) {
+	if cord == CordNone {
+		return
+	}
 	opp := tile.GetFlip()
 	for _, dir := range dirs {
 		if g.PossibleInDir(cord, tile, dir) {
