@@ -10,6 +10,7 @@
 - [x] /games/{id}/actions put
 - [ ] /games/{id}/actions undo
 - [ ] /games/{id}/actions undo_accept
+
 ***games/{id} post *** deprecated
 
 ## websocket 게임
