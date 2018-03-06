@@ -30,12 +30,12 @@ type (
 	}
 
 	WSRoom struct {
-		_clients    map[string]map[*Client]bool
-		_name       string
-		_store      *WSStore
-		_register   chan *Client
-		_unregister chan *Client
-		_close      chan bool
+		clients    map[string]map[*Client]bool
+		name       string
+		store      *WSStore
+		register   chan *Client
+		unregister chan *Client
+		close      chan bool
 	}
 	WSListenHandler func(*Client, []byte)
 	WSStore         struct {
@@ -126,17 +126,17 @@ func (r *WSStore) Enter(cli *Client, user *models.User, roomn string) error {
 
 func NewWSRoom(name string, store *WSStore) *WSRoom {
 	return &WSRoom{
-		_clients:    make(map[string]map[*Client]bool),
-		_name:       name,
-		_store:      store,
-		_register:   make(chan *Client),
-		_unregister: make(chan *Client),
-		_close:      make(chan bool),
+		clients:    make(map[string]map[*Client]bool),
+		name:       name,
+		store:      store,
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		close:      make(chan bool),
 	}
 }
 
 func (r *WSRoom) GetClientsByName(name string) []*Client {
-	if clili, ok := r._clients[name]; ok {
+	if clili, ok := r.clients[name]; ok {
 		list := []*Client{}
 		for cli := range clili {
 			list = append(list, cli)
@@ -148,7 +148,7 @@ func (r *WSRoom) GetClientsByName(name string) []*Client {
 
 func (r *WSRoom) Close() {
 	go func() {
-		r._close <- true
+		r.close <- true
 		time.Sleep(time.Second)
 		for _, conn := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
 			conn.Disconnect()
@@ -160,42 +160,48 @@ func (r *WSRoom) Close() {
 func (r *WSRoom) Emit(typ string, ho H) {
 	ho["type"] = typ
 	content, _ := json.Marshal(ho)
+	r.EmitMsg(content)
+	log.Println("websocket sent from", r.name, ":", string(content))
+}
+
+func (r *WSRoom) EmitMsg(content []byte) {
 	for _, con := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
 		con.EmitMessage(content)
 	}
-	log.Println("websocket sent from", r._name, ":", string(content))
+	log.Println("websocket sent from", r.name, ":", string(content))
 }
 
 func (r *WSRoom) Run() {
 	for {
 		select {
-		case client := <-r._register:
+		case client := <-r.register:
 			name := client.User.Name
-			_, ok := r._clients[name]
+			_, ok := r.clients[name]
 			if !ok {
-				r._clients[name] = make(map[*Client]bool)
+				r.clients[name] = make(map[*Client]bool)
 			}
-			r._clients[name][client] = true
-		case client := <-r._unregister:
-			delete(r._clients[client.User.Name], client)
-		case <-r._close:
+			r.clients[name][client] = true
+		case client := <-r.unregister:
+			delete(r.clients[client.User.Name], client)
+			fmt.Printf("%v", r.clients[client.User.Name])
+		case <-r.close:
 			return
 		}
 	}
 }
 
 func (r *WSRoom) Name() string {
-	return r._name
+	return r.name
 }
 
 func (r *WSRoom) Store() *WSStore {
-	return r._store
+	return r.store
 }
 
 func (r *WSRoom) Register(cli *Client) {
-	r._register <- cli
+	r.register <- cli
 }
 
 func (r *WSRoom) Unregister(cli *Client) {
-	r._unregister <- cli
+	r.unregister <- cli
 }

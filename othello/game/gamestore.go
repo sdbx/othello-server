@@ -13,7 +13,7 @@ import (
 
 type (
 	GameStore struct {
-		sync.Mutex
+		mu sync.Mutex
 		*ws.WSStore
 	}
 	gameClient struct {
@@ -37,10 +37,12 @@ func NewGameStore(userStore models.UserStore) *GameStore {
 }
 
 func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) (*Game, error) {
-	log.Println(room, "game created")
+	gs.mu.Lock()
+	defer gs.mu.Unlock()
 	if _, ok := gs.Rooms[room]; ok {
 		return nil, errors.New("game already exist")
 	}
+	log.Println(room, "game created")
 	gameroom := &gameRoom{
 		WSRoom:   ws.NewWSRoom(room, gs.WSStore),
 		ticker1:  time.NewTicker(time.Second),
@@ -48,9 +50,7 @@ func (gs *GameStore) CreateGame(room string, black string, white string, gameTyp
 	}
 	gam := newGame(gameroom, black, white, gameType)
 	gameroom.game = gam
-	gs.Lock()
 	gs.Rooms[room] = gameroom
-	gs.Unlock()
 	go gameroom.Run()
 	go gameroom.runGame()
 	return gam, nil

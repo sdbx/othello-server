@@ -15,9 +15,10 @@ type Service struct {
 
 func NewService() *Service {
 	var userStore db.DBUserStore = map[string]*models.User{}
+	gameStore := game.NewGameStore(&userStore)
 	return &Service{
 		UserStore: &userStore,
-		GameStore: game.NewGameStore(&userStore),
-		RoomStore: room.NewRoomStore(&userStore),
+		GameStore: gameStore,
+		RoomStore: room.NewRoomStore(&userStore, gameStore),
 	}
 }
