@@ -34,3 +34,24 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		"secret": key,
 	})
 }
+
+type userInfo struct {
+	Name   string `json:"username"`
+	Secret string `json:"secret"`
+}
+
+func usersMeHandler(w http.ResponseWriter, r *http.Request) {
+	secret := r.Header.Get("X-User-Secret")
+	user := service.UserStore.GetUserBySecret(secret)
+	if user == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	resp := userInfo{
+		Name:   user.Name,
+		Secret: user.Secret,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}

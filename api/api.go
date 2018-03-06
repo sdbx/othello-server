@@ -59,6 +59,11 @@ func Start(serv *othello.Service) http.Handler {
 		Methods("GET").
 		Name("room detail")
 
+	r.Path("/users/me").
+		HandlerFunc(usersMeHandler).
+		Methods("GET").
+		Name("personal info")
+
 	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "X-User-Secret"})
 	cors2 := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 	cors := handlers.AllowedOrigins([]string{"*"})

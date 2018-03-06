@@ -9,11 +9,11 @@
 ### 요약
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | **/register/test** | 테스트 유저 등록입니다 |
+| POST | **/register** | 테스트 유저 등록입니다 |
 | POST | /register/naver | 네이버 유저 등록입니다 |
-| GET | /users/me | 클라이언트의 정보를 가져옵니다 |
+| GET | **/users/me** | 클라이언트의 정보를 가져옵니다 |
 
-### /register/test
+### /register
 
 #### 바디
 
@@ -28,11 +28,10 @@
 ```
 {
   secret: 유저시크릿
-  username: 유저이름
 } 
 ```
 
-### /users/me
+### **/users/me**
 
 네이버 토큰 또는 유저 시크릿을 이용해 클라이언트의 정보를 가져옵니다. 둘 중 하나만 있어도 동작하며 네이버 토큰의 경우 클라이언트가 등록되지 않았을 경우 자동으로 등록후 정보를 반환해줍니다.
 
@@ -53,18 +52,14 @@ X-User-Secret : 유저 시크릿
 
 ## rest
 
-### 헤더
-
-X-User-Secret : 유저 시크릿
-
 ### 요약
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| GET | /rooms | 방 리스트를 구합니다 |
-| GET | /rooms/{room}?password=비밀번호 | 특정 방의 정보를 가져옵니다 |
+| GET | **/rooms** | 방 리스트를 구합니다 |
+| GET | **/rooms/{room}** | 특정 방의 정보를 가져옵니다 |
 
-### /rooms
+### **/rooms**
 
 #### 응답
 
@@ -74,14 +69,14 @@ X-User-Secret : 유저 시크릿
     {
       name: 방이름
       king: 방장이름
-      password: true or false
+      n_of_people: 접속자수
     }
     ...
   ]
 }
 ```
 
-### /rooms/{room}?password=비밀번호
+### **/rooms/{room}**
 
 #### 응답
 
@@ -89,9 +84,11 @@ X-User-Secret : 유저 시크릿
 {
   name: 방이름
   king: 방장이름
-  password: true or false
-  status: "ingame" or "outgame"
-  game: 게임id or x 
+  participants: 접속자들
+  black: 유저네임 or "none"
+  white: 유저네임 or "none"
+  state: "ingame" or "perparing"
+  game: 게임id or "none"
 }
 ```
 
@@ -101,7 +98,7 @@ X-User-Secret : 유저 시크릿
 
 ### 송신
 
-### ping
+### **ping**
 
 핑!
 

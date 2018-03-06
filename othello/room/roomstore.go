@@ -80,6 +80,15 @@ func (s State) String() string {
 const NoneUser = "none"
 const NoneGame = "none"
 
+func (r *Room) timeout() {
+	t := time.NewTimer(time.Second * 30)
+	<-t.C
+	diff := time.Now().Sub(r.lastConnected)
+	if diff >= time.Second*30 {
+		r.Close()
+	}
+}
+
 func (r *Room) StartGame() (string, error) {
 	if r.State == StateGame {
 		return "", errors.New("already ingame")
@@ -98,14 +107,7 @@ func (r *Room) StartGame() (string, error) {
 		r.State = StatePerparing
 		r.Game = NoneGame
 		r.Emit("gameend", ws.H{})
-		go func() {
-			t := time.NewTimer(time.Second * 30)
-			<-t.C
-			diff := time.Now().Sub(r.lastConnected)
-			if diff == time.Second*30 {
-				r.Close()
-			}
-		}()
+		go r.timeout()
 	})
 	r.Emit("gamestart", ws.H{
 		"game": key,

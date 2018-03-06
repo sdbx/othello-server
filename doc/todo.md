@@ -3,7 +3,7 @@
 ## rest
 - [x] /register
 - [ ] /register/naver
-- [ ] /users/me
+- [x] /users/me
 - [x] /rooms
 - [x] /rooms/{room}
 - [x] /games/{id} get
