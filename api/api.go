@@ -49,6 +49,16 @@ func Start(serv *othello.Service) http.Handler {
 		Handler(service.RoomStore.WS.Handler()).
 		Name("room websocket")
 
+	r.Path("/rooms").
+		HandlerFunc(roomsHandler).
+		Methods("GET").
+		Name("room list")
+
+	r.Path("/rooms/{room}").
+		HandlerFunc(roomsDetailHandler).
+		Methods("GET").
+		Name("room detail")
+
 	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "X-User-Secret"})
 	cors2 := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 	cors := handlers.AllowedOrigins([]string{"*"})

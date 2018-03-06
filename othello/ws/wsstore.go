@@ -27,6 +27,7 @@ type (
 		Emit(string, H)
 		Store() *WSStore
 		GetClientsByName(name string) []*Client
+		GetClientNames() []string
 	}
 
 	WSRoom struct {
@@ -135,6 +136,14 @@ func NewWSRoom(name string, store *WSStore) *WSRoom {
 	}
 }
 
+func (r *WSRoom) GetClientNames() []string {
+	list := []string{}
+	for name := range r.clients {
+		list = append(list, name)
+	}
+	return list
+}
+
 func (r *WSRoom) GetClientsByName(name string) []*Client {
 	if clili, ok := r.clients[name]; ok {
 		list := []*Client{}
@@ -182,8 +191,11 @@ func (r *WSRoom) Run() {
 			}
 			r.clients[name][client] = true
 		case client := <-r.unregister:
-			delete(r.clients[client.User.Name], client)
-			fmt.Printf("%v", r.clients[client.User.Name])
+			name := client.User.Name
+			delete(r.clients[name], client)
+			if len(r.clients[name]) == 0 {
+				delete(r.clients, name)
+			}
 		case <-r.close:
 			return
 		}

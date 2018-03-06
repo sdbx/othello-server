@@ -4,8 +4,8 @@
 - [x] /register
 - [ ] /register/naver
 - [ ] /users/me
-- [ ] /rooms
-- [ ] /rooms/{room}?password=비밀번호
+- [x] /rooms
+- [x] /rooms/{room}
 - [x] /games/{id} get
 - [x] /games/{id}/actions put
 - [ ] /games/{id}/actions undo
@@ -26,3 +26,20 @@
 - [x] tick
 - [ ] undo
 - [ ] undo_accept
+
+## websocket 방
+
+### 송신
+- [x] enter
+- [x] ping
+- [x] actions
+- [x] gamestart
+
+### 수신
+- [x] connect
+- [x] disconnect
+- [x] actions
+- [x] gamestart
+- [x] gameend
+
+

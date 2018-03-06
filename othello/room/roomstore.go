@@ -3,6 +3,7 @@ package room
 import (
 	"errors"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -42,15 +43,21 @@ var KeyStore = keyStore{
 	keys: make(map[string]bool),
 }
 
-func genKey() string {
-	return "abc"
+var letterRunes = []rune("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func genKey(length int) string {
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
 
 func (s *keyStore) Gen() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for {
-		key := genKey()
+		key := genKey(10)
 		if !s.keys[key] {
 			s.keys[key] = true
 			return key
@@ -59,9 +66,16 @@ func (s *keyStore) Gen() string {
 }
 
 const (
-	StateReady State = iota
+	StatePerparing State = iota
 	StateGame
 )
+
+func (s State) String() string {
+	if s == StatePerparing {
+		return "preparing"
+	}
+	return "ingame"
+}
 
 const NoneUser = "none"
 const NoneGame = "none"
@@ -81,8 +95,9 @@ func (r *Room) StartGame() (string, error) {
 	r.State = StateGame
 	r.Game = key
 	gam.Emitter.On("end", func(e *emitter.Event) {
-		r.State = StateReady
+		r.State = StatePerparing
 		r.Game = NoneGame
+		r.Emit("gameend", ws.H{})
 		go func() {
 			t := time.NewTimer(time.Second * 30)
 			<-t.C
@@ -91,6 +106,9 @@ func (r *Room) StartGame() (string, error) {
 				r.Close()
 			}
 		}()
+	})
+	r.Emit("gamestart", ws.H{
+		"game": key,
 	})
 	return key, nil
 }
@@ -109,23 +127,36 @@ func (r *Room) ChangeKing(target string) error {
 		return errors.New("user with target username doesn't exist")
 	}
 	r.King = target
+	r.Emit("actions", ws.H{
+		"action": "king",
+		"target": target,
+	})
 	return nil
 }
 
 func (r *Room) ChangeColor(color string, target string) error {
+	if r.State == StateGame {
+		return errors.New("changin color during the game is not allowed")
+	}
+	if color != "black" && color != "white" {
+		return errors.New("no such color")
+	}
 	cli := r.GetClient(target)
 	if cli == nil && target != NoneUser {
 		return errors.New("user with target username doesn't exist")
 	}
 	if color == "black" {
 		r.Black = target
-		return nil
 	}
 	if color == "white" {
 		r.White = target
-		return nil
 	}
-	return errors.New("no such color")
+	r.Emit("actions", ws.H{
+		"action": "color",
+		"to":     target,
+		"color":  color,
+	})
+	return nil
 }
 
 func (r *Room) Kick(target string) error {
@@ -137,6 +168,10 @@ func (r *Room) Kick(target string) error {
 		return errors.New("what are you doing here master?")
 	}
 	cli.Connection.Disconnect()
+	r.Emit("actions", ws.H{
+		"action": "kick",
+		"target": target,
+	})
 	return nil
 }
 
@@ -149,7 +184,7 @@ func (rs *RoomStore) CreateRoom(roomn string) error {
 	log.Println(roomn, "room created")
 	room := &Room{
 		WSRoom:       ws.NewWSRoom(roomn, rs.WSStore),
-		State:        StateReady,
+		State:        StatePerparing,
 		Participants: 0,
 		Black:        NoneUser,
 		White:        NoneUser,
@@ -169,13 +204,37 @@ func (r *Room) Register(cli *ws.Client) {
 	r.lastConnected = time.Now()
 }
 
+func (r *Room) pickNext(current string) string {
+	list := r.GetClientNames()
+	next := ""
+	for {
+		next = list[rand.Intn(len(list))]
+		if next != current {
+			return next
+		}
+	}
+}
+
 func (r *Room) Unregister(cli *ws.Client) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	name := cli.User.Name
 	r.Participants--
 	r.WSRoom.Unregister(cli)
-	if r.Participants == 0 && r.State == StateReady {
+	if r.Participants == 0 && r.State == StatePerparing {
 		r.Close()
+		return
+	}
+	if r.State == StatePerparing {
+		if r.Black == name {
+			r.ChangeColor("black", NoneUser)
+		}
+		if r.White == name {
+			r.ChangeColor("white", NoneUser)
+		}
+	}
+	if r.King == name {
+		r.ChangeKing(r.pickNext(r.King))
 	}
 }
 

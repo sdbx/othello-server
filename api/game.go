@@ -16,10 +16,6 @@ var actions = map[string]actionFunc{
 	"put": actionsPut,
 }
 
-type BriefRoom struct {
-	Name string `json:"name"`
-}
-
 type gameCreateRequest struct {
 	Blackname string `json:"black"`
 	Whitename string `json:"white"`
@@ -50,7 +46,7 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	game := service.GameStore.GetGame(vars["game"])
 	if game == nil {
-		errorWrite(w, r, "game doesn't exist", "gameGetHandler")
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -80,7 +76,7 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	game := service.GameStore.GetGame(vars["game"])
 	if game == nil {
-		errorWrite(w, r, "game doesn't exist", "gameActionHandler")
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 

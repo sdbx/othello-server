@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | POST | **/register/test** | 테스트 유저 등록입니다 |
 | POST | /register/naver | 네이버 유저 등록입니다 |
-| GET | **/users/me** | 클라이언트의 정보를 가져옵니다 |
+| GET | /users/me | 클라이언트의 정보를 가져옵니다 |
 
 ### /register/test
 
@@ -133,7 +133,7 @@ keepAlive();
 ```
 
 
-### enter
+### **enter**
 
 서버에게 자신이 등록된 클라이언트임을 증명합니다. login이 성공적으로 이루어지지 않았을 경우 프로토콜 사용이 불가능합니다
 
@@ -154,7 +154,7 @@ keepAlive();
 }
 ```
 
-### action
+### **actions**
 
 만약 방장일 경우 어떤 행동을 취합니다.
 
@@ -162,7 +162,7 @@ keepAlive();
 
 ```
 {
-  type:"action"
+  type:"actions"
   target:"유저이름"
   action:"kick"
 }
@@ -172,7 +172,7 @@ keepAlive();
 
 ```
 {
-  type:"action"
+  type:"actions"
   target:"유저이름"
   action:"king"
 }
@@ -182,9 +182,10 @@ keepAlive();
 
 ```
 {
-  type:"action"
-  target:"유저이름"
-  action:"black"
+  type:"actions"
+  to:"유저이름"
+  action:"color"
+  color:"black"
 }
 ``` 
 
@@ -192,9 +193,10 @@ keepAlive();
 
 ```
 {
-  type:"action"
-  target:"유저이름"
-  action:"white"
+  type:"actions"
+  to:"유저이름"
+  action:"color"
+  color:"white"
 }
 ``` 
 
@@ -202,7 +204,7 @@ keepAlive();
 
 ```
 {
-  type:"action"
+  type:"actions"
   action:"typechange"
   initial: 게임보드
   size: {
@@ -216,14 +218,14 @@ keepAlive();
 
 ```
 {
-  type:"action"
+  type:"actions"
   action:"gamestart"
 }
 ```
 
 ### 수신
 
-### disconnect
+### **disconnect**
 
 누군가의 접속이 끊어졌을 때 생깁니다. 만약 방장의 접속이 끊어진 경우 다음 방장의 아이디도 포함됩니다.
 
@@ -235,7 +237,7 @@ keepAlive();
 }
 ```
 
-### connect
+### **connect**
 
 누군가의 접속했을 때 생깁니다
 
@@ -246,7 +248,7 @@ keepAlive();
 }
 ```
 
-### gamestart
+### **gamestart**
 
 게임이 시작되었음을 의미합니다.
 
@@ -258,7 +260,7 @@ keepAlive();
 ```
 
 
-### gameend
+### **gameend**
 
 게임이 끝났음을 의미합니다.
 

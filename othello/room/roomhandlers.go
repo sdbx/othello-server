@@ -69,7 +69,7 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 	case "color":
 		req := struct {
 			Color    string `json:"color"`
-			Username string `json:"username"`
+			Username string `json:"to"`
 		}{}
 		err = json.Unmarshal(message, &req)
 		if err != nil {
@@ -82,7 +82,6 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 			cli.EmitError(err.Error(), "color")
 			return
 		}
-		room.EmitMsg(message)
 	case "kick":
 		req := struct {
 			Target string `json:"target"`
@@ -96,7 +95,6 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 		if err != nil {
 			cli.EmitError(err.Error(), "kick")
 		}
-		room.EmitMsg(message)
 	case "king":
 		req := struct {
 			Target string `json:"target"`
@@ -109,18 +107,12 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 		room.ChangeKing(req.Target)
 		if err != nil {
 			cli.EmitError(err.Error(), "king")
-			return
 		}
-		room.EmitMsg(message)
-	case "start":
-		name, err := room.StartGame()
+	case "gamestart":
+		_, err := room.StartGame()
 		if err != nil {
 			cli.EmitError(err.Error(), "start")
-			return
 		}
-		room.Emit("start", ws.H{
-			"game": name,
-		})
 	default:
 		cli.EmitError("no such action", "actions")
 	}
