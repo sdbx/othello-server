@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -29,16 +30,19 @@ func gameCreateHandler(w http.ResponseWriter, r *http.Request) {
 	req := gameCreateRequest{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		errorWrite(w, r, err.Error(), "gameCreateHandler")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
 
 	vars := mux.Vars(r)
 	_, err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, game.DefaultOthello{})
 	if err != nil {
-		errorWrite(w, r, err.Error(), "gameCreateHandler")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprintln(w, err)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -50,6 +54,7 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	game.RLock()
 	resp := h{
 		"room":    "not implemented",
 		"board":   game.Board,
@@ -64,6 +69,8 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 			"white": game.WhiteTime,
 		},
 	}
+	game.RUnlock()
+
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
@@ -73,6 +80,7 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 	if !jsonTest(w, r) {
 		return
 	}
+
 	vars := mux.Vars(r)
 	game := service.GameStore.GetGame(vars["game"])
 	if game == nil {
@@ -82,14 +90,18 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		errorWrite(w, r, err.Error(), "gameActionHandler")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
+
 	typ, err := jsonparser.GetString(bytes, "type")
 	if err != nil {
-		errorWrite(w, r, err.Error(), "gameActionHandler")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
+
 	if action, ok := actions[typ]; ok {
 		game.Lock()
 		action(w, r, game, bytes)

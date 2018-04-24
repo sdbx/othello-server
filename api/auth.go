@@ -18,20 +18,24 @@ func handleAuth(w http.ResponseWriter, r *http.Request, user goth.User) {
 			UserID:  user.UserID,
 			Profile: user.AvatarURL,
 		}
+
 		err = dbs.AddUser(&user2)
 		if err != nil {
 			fmt.Fprintln(w, err)
 			return
 		}
 	}
+
 	http.Redirect(w, r, os.Getenv("AUTH_CALLBACK")+"?secret="+user2.Secret, 301)
 }
+
 func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := gothic.CompleteUserAuth(w, r)
 	if err != nil {
 		fmt.Fprintln(w, err)
 		return
 	}
+
 	handleAuth(w, r, user)
 }
 

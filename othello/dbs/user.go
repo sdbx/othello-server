@@ -28,12 +28,14 @@ type (
 func GetUserByUserID(UserID string) (User, error) {
 	out := User{}
 	err := db.Where("user_id = ?", UserID).First(&out).Error
+
 	return out, err
 }
 
 func GetUserBySecret(secret string) (User, error) {
 	out := User{}
 	err := db.Where("secret = ?", secret).First(&out).Error
+
 	return out, err
 }
 
@@ -44,6 +46,7 @@ func secretTest(secret string) bool {
 	if err != nil {
 		return false
 	}
+
 	return count == 0
 }
 
@@ -54,6 +57,7 @@ func nameTest(name string) bool {
 	if err != nil {
 		return false
 	}
+
 	return count == 0
 }
 

@@ -17,33 +17,50 @@ type actionsPutRequest struct {
 func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []byte) {
 	secret := r.Header.Get("X-User-Secret")
 	req := actionsPutRequest{}
+
 	err := json.Unmarshal(bytes, &req)
 	if err != nil {
-		errorWrite(w, r, err.Error(), "actionsPut")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
+
 	user, err := dbs.GetUserBySecret(secret)
 	if err != nil {
-		errorWrite(w, r, "user doesn't exist", "actionsPut")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "no such user")
 		return
 	}
+
 	cord, err := game.CordFromMove(game.Move(req.Move))
-	fmt.Println(cord)
 	if err != nil {
-		errorWrite(w, r, err.Error(), "actionsPut")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
+
 	if gam.Black == user.Name {
 		err = gam.Put(cord, game.GameTileBlack)
-	} else if gam.White == user.Name {
+		if err == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	if gam.White == user.Name {
 		err = gam.Put(cord, game.GameTileWhite)
-	} else {
-		errorWrite(w, r, "you are not a player", "actionsPut")
-		return
+		if err == nil {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 	}
+
 	if err != nil {
-		errorWrite(w, r, err.Error(), "actionsPut")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	w.WriteHeader(http.StatusBadRequest)
+	fmt.Fprintln(w, "you are not a player")
 }

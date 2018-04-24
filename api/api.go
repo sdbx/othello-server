@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -50,6 +49,11 @@ func Start(serv *othello.Service) http.Handler {
 		Methods("GET").
 		Name("room list")
 
+	r.Path("/rooms/{room}").
+		HandlerFunc(roomDetailHandler).
+		Methods("GET").
+		Name("room detail")
+
 	r.Path("/users/me").
 		HandlerFunc(usersMeHandler).
 		Methods("GET").
@@ -88,14 +92,4 @@ func jsonTest(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
-}
-
-func errorWrite(w http.ResponseWriter, r *http.Request, err string, from string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusConflict)
-	json.NewEncoder(w).Encode(Error{
-		Msg:  err,
-		From: from,
-	})
-	fmt.Println(err)
 }

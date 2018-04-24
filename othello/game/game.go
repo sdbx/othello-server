@@ -10,7 +10,7 @@ import (
 
 type (
 	Game struct {
-		sync.Mutex
+		sync.RWMutex
 		Black     string
 		White     string
 		BlackTime uint
@@ -39,39 +39,38 @@ func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) 
 	}
 }
 
-var dirs = []Coordinate{{0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {1, -1}, {-1, -1}, {-1, 1}}
+func (g *Game) Put(cord Coordinate, tile Tile) error {
+	turn := g.Turn()
+	if turn != TurnFromTile(tile) {
+		return errors.New("it's opponent's turn")
+	}
+	if !g.possibleAt(cord, tile) {
+		return errors.New("invalid move")
+	}
 
-func (g *Game) NumberOfPossibleMoves(turn Turn) uint {
-	if turn != GameTurnBlack && turn != GameTurnWhite {
-		return 0
-	}
-	num := uint(0)
-	size := g.GameType.Size()
-	for x := 0; x < size.X; x++ {
-		for y := 0; y < size.Y; y++ {
-			if g.PossibleAt(Coordinate{x, y}, turn.GetTile()) {
-				num++
-			}
-		}
-	}
-	return num
-}
+	g.put(cord, tile)
 
-// black / white
-func (g *Game) Total() (int, int) {
-	black := 0
-	white := 0
-	size := g.GameType.Size()
-	for x := 0; x < size.X; x++ {
-		for y := 0; y < size.Y; y++ {
-			if tile := g.GetTile(Coordinate{x, y}); tile == GameTileBlack {
-				black++
-			} else if tile == GameTileWhite {
-				white++
-			}
-		}
+	move := cord.ToMove()
+	g.History = append(g.History, move)
+	<-g.Emitter.Emit("turn", ws.H{
+		"color": turn,
+		"move":  move,
+	})
+
+	if g.CheckEnd() {
+		return nil
 	}
-	return black, white
+
+	// skip opponent's turn
+	if g.numberOfPossibleMoves(turn.GetOpp()) == 0 {
+		g.History = append(g.History, MoveNone)
+		<-g.Emitter.Emit("turn", ws.H{
+			"color": turn.GetOpp(),
+			"move":  MoveNone,
+		})
+	}
+
+	return nil
 }
 
 func (g *Game) TimeCount() {
@@ -94,13 +93,26 @@ func (g *Game) TimeCount() {
 	}
 }
 
+func (g *Game) UndoAnswer(ok bool) {
+	if ok {
+		g.goBackTo(g.undoIndex)
+	}
+	g.undoing = false
+	<-g.Emitter.Emit("undo_answer", ws.H{
+		"ok":    ok,
+		"index": g.undoIndex,
+	})
+}
+
 func (g *Game) UndoReq(turn Turn) {
 	if !g.undoing {
+		// previous my turn
 		if g.Turn() == turn {
 			g.undoIndex = len(g.History) - 2
 		} else {
 			g.undoIndex = len(g.History) - 1
 		}
+
 		g.undoing = true
 		<-g.Emitter.Emit("undo", ws.H{
 			"index": g.undoIndex,
@@ -109,38 +121,11 @@ func (g *Game) UndoReq(turn Turn) {
 	}
 }
 
-func (g *Game) GoBackTo(index int) {
-	if index > len(g.History) {
-		return
-	}
-	g.History = g.History[:index]
-	g.Board = g.GameType.Initial()
-	tile := GameTileBlack
-	history := g.History
-
-	for _, mv := range history {
-		cord, _ := CordFromMove(mv)
-		g.put(cord, tile)
-		tile = tile.GetFlip()
-	}
-}
-
-func (g *Game) UndoAnswer(ok bool) {
-	if ok {
-		g.GoBackTo(g.undoIndex)
-	}
-	g.undoing = false
-	<-g.Emitter.Emit("undo_answer", ws.H{
-		"ok":    ok,
-		"index": g.undoIndex,
-	})
-
-}
-
 func (g *Game) CheckEnd() bool {
-	if g.NumberOfPossibleMoves(GameTurnBlack) == 0 &&
-		g.NumberOfPossibleMoves(GameTurnWhite) == 0 {
-		black, white := g.Total()
+	if g.numberOfPossibleMoves(GameTurnBlack) == 0 &&
+		g.numberOfPossibleMoves(GameTurnWhite) == 0 {
+		black, white := g.total()
+
 		winner := ""
 		if black > white {
 			winner = "black"
@@ -153,55 +138,10 @@ func (g *Game) CheckEnd() bool {
 			"winner": winner,
 			"cause":  "normally",
 		})
+
 		return true
 	}
 	return false
-}
-
-func (g *Game) Put(cord Coordinate, tile Tile) error {
-	turn := g.Turn()
-	if turn != TurnFromTile(tile) {
-		return errors.New("it's opponent's turn")
-	}
-	if !g.PossibleAt(cord, tile) {
-		return errors.New("invalid move")
-	}
-	g.put(cord, tile)
-	move := cord.ToMove()
-	g.History = append(g.History, move)
-	<-g.Emitter.Emit("turn", ws.H{
-		"color": turn,
-		"move":  move,
-	})
-	if g.CheckEnd() {
-		return nil
-	}
-	if g.NumberOfPossibleMoves(turn.GetOpp()) == 0 {
-		g.History = append(g.History, MoveNone)
-		<-g.Emitter.Emit("turn", ws.H{
-			"color": turn.GetOpp(),
-			"move":  MoveNone,
-		})
-	}
-	return nil
-}
-
-func (g *Game) put(cord Coordinate, tile Tile) {
-	if cord == CordNone {
-		return
-	}
-	opp := tile.GetFlip()
-	for _, dir := range dirs {
-		if g.PossibleInDir(cord, tile, dir) {
-			temp := cord
-			temp.Add(dir)
-			for g.GetTile(temp) == opp {
-				g.set(temp, tile)
-				temp.Add(dir)
-			}
-		}
-	}
-	g.set(cord, tile)
 }
 
 func (g *Game) Turn() Turn {
@@ -211,29 +151,100 @@ func (g *Game) Turn() Turn {
 	return GameTurnWhite
 }
 
-func (g *Game) GetTile(cord Coordinate) Tile {
+func (g *Game) put(cord Coordinate, tile Tile) {
+	if cord == CordNone {
+		return
+	}
+
+	opp := tile.GetFlip()
+	for _, dir := range dirs {
+
+		if g.possibleInDir(cord, tile, dir) {
+			temp := cord
+			temp.Add(dir)
+
+			for g.getTile(temp) == opp {
+				g.Board[temp.Y][temp.X] = tile
+				temp.Add(dir)
+			}
+		}
+	}
+
+	g.Board[cord.Y][cord.X] = tile
+}
+
+var dirs = []Coordinate{{0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {1, -1}, {-1, -1}, {-1, 1}}
+
+func (g *Game) numberOfPossibleMoves(turn Turn) uint {
+	if turn != GameTurnBlack && turn != GameTurnWhite {
+		return 0
+	}
+
+	num := uint(0)
+	size := g.GameType.Size()
+	for x := 0; x < size.X; x++ {
+		for y := 0; y < size.Y; y++ {
+			if g.possibleAt(Coordinate{x, y}, turn.GetTile()) {
+				num++
+			}
+		}
+	}
+	return num
+}
+
+// black / white
+func (g *Game) total() (int, int) {
+	black := 0
+	white := 0
+	size := g.GameType.Size()
+
+	for x := 0; x < size.X; x++ {
+		for y := 0; y < size.Y; y++ {
+			if tile := g.getTile(Coordinate{x, y}); tile == GameTileBlack {
+				black++
+			} else if tile == GameTileWhite {
+				white++
+			}
+		}
+	}
+
+	return black, white
+}
+
+func (g *Game) goBackTo(index int) {
+	if index > len(g.History) {
+		return
+	}
+
+	g.History = g.History[:index]
+	g.Board = g.GameType.Initial()
+
+	tile := GameTileBlack
+	for _, mv := range g.History {
+		cord, _ := CordFromMove(mv)
+		g.put(cord, tile)
+		tile = tile.GetFlip()
+	}
+}
+
+func (g *Game) getTile(cord Coordinate) Tile {
 	if cord.IsValid(g.GameType.Size()) {
 		return g.Board[cord.Y][cord.X]
 	}
 	return GameTileInvalid
 }
 
-// not thread safe!
-func (g *Game) set(cord Coordinate, tile Tile) {
-	g.Board[cord.Y][cord.X] = tile
-}
-
-func (g *Game) PossibleAt(cord Coordinate, tile Tile) bool {
+func (g *Game) possibleAt(cord Coordinate, tile Tile) bool {
 	for _, dir := range dirs {
-		if g.PossibleInDir(cord, tile, dir) {
+		if g.possibleInDir(cord, tile, dir) {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *Game) PossibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
-	if g.GetTile(cord) != GameTileNone {
+func (g *Game) possibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
+	if g.getTile(cord) != GameTileNone {
 		return false
 	}
 	if tile != GameTileBlack && tile != GameTileWhite {
@@ -245,7 +256,7 @@ func (g *Game) PossibleInDir(cord Coordinate, tile Tile, dir Coordinate) bool {
 	start := false
 	for temp.IsValid(size) {
 		temp.Add(dir)
-		ttile := g.GetTile(temp)
+		ttile := g.getTile(temp)
 		if !start {
 			if ttile != opp {
 				break

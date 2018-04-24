@@ -2,28 +2,32 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-)
 
-type brieftRoom struct {
-	Name         string `json:"name"`
-	King         string `json:"king"`
-	Participants uint   `json:"n_of_people"`
-}
+	"github.com/gorilla/mux"
+	"github.com/sdbx/othello-server/othello/room"
+)
 
 func roomsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+
 	infos := service.RoomStore.GetInfos()
 	json.NewEncoder(w).Encode(infos)
 }
 
-type detailRoom struct {
-	Name         string   `json:"name"`
-	King         string   `json:"king"`
-	Participants []string `json:"participants"`
-	Black        string   `json:"black"`
-	White        string   `json:"white"`
-	State        string   `json:"state"`
-	Game         string   `json:"game"`
+func roomDetailHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	ro := service.RoomStore.GetRoom(vars["room"])
+	if ro == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintln(w, "no such room")
+		return
+	}
+
+	info := ro.(*room.Room).GetInfo()
+	json.NewEncoder(w).Encode(info)
+	w.WriteHeader(http.StatusOK)
 }
