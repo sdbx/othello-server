@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/sdbx/othello-server/othello/dbs"
 	"github.com/sdbx/othello-server/othello/game"
 )
 
@@ -21,8 +22,8 @@ func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []
 		errorWrite(w, r, err.Error(), "actionsPut")
 		return
 	}
-	user := service.UserStore.GetUserBySecret(secret)
-	if user == nil {
+	user, err := dbs.GetUserBySecret(secret)
+	if err != nil {
 		errorWrite(w, r, "user doesn't exist", "actionsPut")
 		return
 	}

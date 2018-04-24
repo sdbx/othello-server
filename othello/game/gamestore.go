@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/sdbx/othello-server/othello/dbs"
@@ -14,7 +13,6 @@ import (
 type (
 	GameStore struct {
 		*ws.WSStore
-		mu sync.RWMutex
 	}
 	gameRoom struct {
 		*ws.WSRoom
@@ -33,8 +31,8 @@ func NewGameStore() *GameStore {
 }
 
 func (gs *GameStore) CreateGame(room string, black string, white string, gameType GameType) (*Game, error) {
-	gs.mu.Lock()
-	defer gs.mu.Unlock()
+	gs.Lock()
+	defer gs.Unlock()
 	if _, ok := gs.Rooms[room]; ok {
 		return nil, errors.New("game already exist")
 	}
@@ -80,8 +78,8 @@ func (g *gameRoom) runGame() {
 }
 
 func (gs *GameStore) GetGame(room string) *Game {
-	gs.mu.RLock()
-	defer gs.mu.RUnlock()
+	gs.RLock()
+	defer gs.RUnlock()
 
 	if groom, ok := gs.Rooms[room]; ok {
 		return groom.(*gameRoom).game

@@ -33,19 +33,19 @@ type (
 	}
 
 	WSRoom struct {
+		sync.RWMutex
 		maxid   int
 		clients map[string]map[int]Client
 		name    string
 		store   *WSStore
-		mu      sync.RWMutex
 	}
 
 	WSListenHandler func(Client, []byte) Client
 	WSStore         struct {
+		sync.RWMutex
 		WS       websocket.Server
 		Handlers map[string]WSListenHandler
 		Rooms    map[string]Room
-		mu       sync.RWMutex
 	}
 )
 
@@ -99,9 +99,10 @@ func (rs *WSStore) Enter(cli Client, user dbs.User, roomn string) (Client, error
 	if cli.Authed {
 		return cli, errors.New("enter should be occured once in a session")
 	}
-	rs.mu.RLock()
+
+	rs.RLock()
 	room, ok := rs.Rooms[roomn]
-	rs.mu.RUnlock()
+	rs.RUnlock()
 
 	if !ok {
 		return cli, errors.New("no such room")
@@ -110,10 +111,10 @@ func (rs *WSStore) Enter(cli Client, user dbs.User, roomn string) (Client, error
 	cli.User = user
 	cli.Room = room
 	cli.Connection.Join(room.Name())
+	room.Register(cli)
 	room.Emit("connect", H{
 		"username": user.Name,
 	})
-	room.Register(cli)
 	return cli, nil
 }
 
@@ -126,8 +127,8 @@ func NewWSRoom(name string, store *WSStore) *WSRoom {
 }
 
 func (r *WSRoom) GetClientNames() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	list := []string{}
 	for name := range r.clients {
@@ -137,8 +138,8 @@ func (r *WSRoom) GetClientNames() []string {
 }
 
 func (r *WSRoom) GetClientsByName(name string) []Client {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	if clili, ok := r.clients[name]; ok {
 		list := []Client{}
@@ -151,24 +152,24 @@ func (r *WSRoom) GetClientsByName(name string) []Client {
 }
 
 func (r *WSRoom) Close() {
+	r.Store().Lock()
+	delete(r.Store().Rooms, r.Name())
+	r.Store().Unlock()
 	for _, conn := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
 		// will trigger unregisters
 		conn.Disconnect()
 	}
-
-	delete(r.Store().Rooms, r.Name())
 }
 
 func (r *WSRoom) Emit(typ string, ho H) {
 	ho["type"] = typ
 	content, _ := json.Marshal(ho)
 	r.EmitMsg(content)
-	log.Println("websocket sent from", r.name, ":", string(content))
 }
 
 func (r *WSRoom) EmitMsg(content []byte) {
 	for _, con := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
-		con.EmitMessage(content)
+		go con.EmitMessage(content)
 	}
 	log.Println("websocket sent from", r.name, ":", string(content))
 }
@@ -182,8 +183,8 @@ func (r *WSRoom) Store() *WSStore {
 }
 
 func (r *WSRoom) Register(cli Client) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	name := cli.User.Name
 	_, ok := r.clients[name]
@@ -197,8 +198,8 @@ func (r *WSRoom) Register(cli Client) {
 }
 
 func (r *WSRoom) Unregister(cli Client) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	name := cli.User.Name
 	delete(r.clients[name], cli.ID)

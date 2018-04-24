@@ -42,12 +42,11 @@ func (rs *RoomStore) enterHandler(cli ws.Client, message []byte) ws.Client {
 		return cli
 	}
 
-	if room, ok := rs.Rooms[req.Room]; !ok {
+	if _, ok := rs.Rooms[req.Room]; !ok {
 		rs.CreateRoom(req.Room)
-		rs.Rooms[req.Room].(*Room).King = user.Name
-	} else if len(room.GetClientsByName(user.Name)) != 0 {
-		cli.EmitError("allows only one connection per user", "enter")
-		return cli
+		rs.Lock()
+		rs.Rooms[req.Room].(*Room).info.King = user.Name
+		rs.Unlock()
 	}
 
 	cli, err = rs.Enter(cli, user, req.Room)
@@ -59,13 +58,13 @@ func (rs *RoomStore) enterHandler(cli ws.Client, message []byte) ws.Client {
 
 func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 	room := cli.Room.(*Room)
-	if room.King != cli.User.Name {
+	if room.GetInfo().King != cli.User.Name {
 		cli.EmitError("not enough permission", "action")
 		return cli
 	}
 	typ, err := jsonparser.GetString(message, "action")
 	if err != nil {
-		cli.EmitError(err.Error(), "actions")
+		cli.EmitError(err.Error(), "artion")
 		return cli
 	}
 	switch typ {
@@ -117,7 +116,7 @@ func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 			cli.EmitError(err.Error(), "start")
 		}
 	default:
-		cli.EmitError("no such action", "actions")
+		cli.EmitError("no such action", "action")
 	}
 	return cli
 }

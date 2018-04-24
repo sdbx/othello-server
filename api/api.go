@@ -21,10 +21,6 @@ type h map[string]interface{}
 func Start(serv *othello.Service) http.Handler {
 	service = serv
 	r := mux.NewRouter()
-	r.Path("/register").
-		HandlerFunc(registerHandler).
-		Methods("POST").
-		Name("register")
 
 	r.Path("/games/{game}").
 		HandlerFunc(gameGetHandler).
@@ -54,15 +50,20 @@ func Start(serv *othello.Service) http.Handler {
 		Methods("GET").
 		Name("room list")
 
-	r.Path("/rooms/{room}").
-		HandlerFunc(roomsDetailHandler).
-		Methods("GET").
-		Name("room detail")
-
 	r.Path("/users/me").
 		HandlerFunc(usersMeHandler).
 		Methods("GET").
 		Name("personal info")
+
+	r.Path("/auth/{provider}/callback").
+		HandlerFunc(authCallbackHandler).
+		Methods("GET").
+		Name("auth callback")
+
+	r.Path("/auth/{provider}").
+		HandlerFunc(authHandler).
+		Methods("GET").
+		Name("auth")
 
 	cors3 := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "X-User-Secret"})
 	cors2 := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
