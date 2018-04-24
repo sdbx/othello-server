@@ -8,7 +8,6 @@ import (
 )
 
 type Service struct {
-	UserStore models.UserStore
 	GameStore *game.GameStore
 	RoomStore *room.RoomStore
 }

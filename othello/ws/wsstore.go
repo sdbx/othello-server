@@ -5,45 +5,47 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
+	"sync"
 
 	"github.com/buger/jsonparser"
 	websocket "github.com/kataras/go-websocket"
-	"github.com/sdbx/othello-server/othello/models"
+	"github.com/sdbx/othello-server/othello/dbs"
 )
 
 type (
 	H      map[string]interface{}
 	Client struct {
-		User       *models.User
+		ID         int
+		Authed     bool
+		User       dbs.User
 		Room       Room
 		Connection websocket.Connection
 	}
 
 	Room interface {
 		Name() string
-		Register(*Client)
-		Unregister(*Client)
+		Register(Client)
+		Unregister(Client)
 		Emit(string, H)
 		Store() *WSStore
-		GetClientsByName(name string) []*Client
+		GetClientsByName(name string) []Client
 		GetClientNames() []string
 	}
 
 	WSRoom struct {
-		clients    map[string]map[*Client]bool
-		name       string
-		store      *WSStore
-		register   chan *Client
-		unregister chan *Client
-		close      chan bool
+		maxid   int
+		clients map[string]map[int]Client
+		name    string
+		store   *WSStore
+		mu      sync.RWMutex
 	}
-	WSListenHandler func(*Client, []byte)
+
+	WSListenHandler func(Client, []byte) Client
 	WSStore         struct {
-		WS        websocket.Server
-		Handlers  map[string]WSListenHandler
-		UserStore models.UserStore
-		Rooms     map[string]Room
+		WS       websocket.Server
+		Handlers map[string]WSListenHandler
+		Rooms    map[string]Room
+		mu       sync.RWMutex
 	}
 )
 
@@ -51,35 +53,22 @@ func (cli *Client) EmitError(msg string, from string) {
 	cli.Connection.EmitMessage([]byte(fmt.Sprintf(`{"type":"error","msg":"%s","from":"%s"}`, msg, from)))
 }
 
-func NewWSStore(userStore models.UserStore) *WSStore {
+func NewWSStore() *WSStore {
 	gs := &WSStore{
-		WS:        websocket.New(websocket.Config{}),
-		UserStore: userStore,
-		Rooms:     make(map[string]Room),
-		Handlers:  make(map[string]WSListenHandler),
+		WS:       websocket.New(websocket.Config{}),
+		Rooms:    make(map[string]Room),
+		Handlers: make(map[string]WSListenHandler),
 	}
 	gs.Handlers["ping"] = WSPingHandler
 	gs.WS.OnConnection(gs.handleConnection)
 	return gs
 }
 
-const jsonErrorMsg = `
-{
-	"type":"error",
-	"msg":"json error",
-	"from":"none"
-}
-`
-const typeErrorMsg = `
-{
-	"type":"error",
-	"msg":"no such type",
-	"from":"none"
-}
-`
+const jsonErrorMsg = `{"type":"error","msg":"json error","from":"none"}`
+const typeErrorMsg = `{"type":"error","msg":"no such type","from":"none"}`
 
 func (rs *WSStore) handleConnection(c websocket.Connection) {
-	client := &Client{
+	client := Client{
 		Connection: c,
 	}
 	c.OnMessage(func(message []byte) {
@@ -89,12 +78,11 @@ func (rs *WSStore) handleConnection(c websocket.Connection) {
 			c.EmitMessage([]byte(jsonErrorMsg))
 			return
 		}
-		fmt.Println(rs.Handlers)
+
 		if fun, ok := rs.Handlers[typ]; !ok {
 			c.EmitMessage([]byte(typeErrorMsg))
-			return
 		} else {
-			fun(client, message)
+			client = fun(client, message)
 		}
 	})
 	c.OnDisconnect(func() {
@@ -107,14 +95,18 @@ func (rs *WSStore) handleConnection(c websocket.Connection) {
 	})
 }
 
-func (r *WSStore) Enter(cli *Client, user *models.User, roomn string) error {
-	if cli.User != nil {
-		return errors.New("enter should be occured once in a session")
+func (rs *WSStore) Enter(cli Client, user dbs.User, roomn string) (Client, error) {
+	if cli.Authed {
+		return cli, errors.New("enter should be occured once in a session")
 	}
-	room, ok := r.Rooms[roomn]
+	rs.mu.RLock()
+	room, ok := rs.Rooms[roomn]
+	rs.mu.RUnlock()
+
 	if !ok {
-		return errors.New("no such room")
+		return cli, errors.New("no such room")
 	}
+	cli.Authed = true
 	cli.User = user
 	cli.Room = room
 	cli.Connection.Join(room.Name())
@@ -122,21 +114,21 @@ func (r *WSStore) Enter(cli *Client, user *models.User, roomn string) error {
 		"username": user.Name,
 	})
 	room.Register(cli)
-	return nil
+	return cli, nil
 }
 
 func NewWSRoom(name string, store *WSStore) *WSRoom {
 	return &WSRoom{
-		clients:    make(map[string]map[*Client]bool),
-		name:       name,
-		store:      store,
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		close:      make(chan bool),
+		clients: make(map[string]map[int]Client),
+		name:    name,
+		store:   store,
 	}
 }
 
 func (r *WSRoom) GetClientNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	list := []string{}
 	for name := range r.clients {
 		list = append(list, name)
@@ -144,26 +136,27 @@ func (r *WSRoom) GetClientNames() []string {
 	return list
 }
 
-func (r *WSRoom) GetClientsByName(name string) []*Client {
+func (r *WSRoom) GetClientsByName(name string) []Client {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if clili, ok := r.clients[name]; ok {
-		list := []*Client{}
-		for cli := range clili {
+		list := []Client{}
+		for _, cli := range clili {
 			list = append(list, cli)
 		}
 		return list
 	}
-	return []*Client{}
+	return []Client{}
 }
 
 func (r *WSRoom) Close() {
-	go func() {
-		r.close <- true
-		time.Sleep(time.Second)
-		for _, conn := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
-			conn.Disconnect()
-		}
-		delete(r.Store().Rooms, r.Name())
-	}()
+	for _, conn := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
+		// will trigger unregisters
+		conn.Disconnect()
+	}
+
+	delete(r.Store().Rooms, r.Name())
 }
 
 func (r *WSRoom) Emit(typ string, ho H) {
@@ -180,28 +173,6 @@ func (r *WSRoom) EmitMsg(content []byte) {
 	log.Println("websocket sent from", r.name, ":", string(content))
 }
 
-func (r *WSRoom) Run() {
-	for {
-		select {
-		case client := <-r.register:
-			name := client.User.Name
-			_, ok := r.clients[name]
-			if !ok {
-				r.clients[name] = make(map[*Client]bool)
-			}
-			r.clients[name][client] = true
-		case client := <-r.unregister:
-			name := client.User.Name
-			delete(r.clients[name], client)
-			if len(r.clients[name]) == 0 {
-				delete(r.clients, name)
-			}
-		case <-r.close:
-			return
-		}
-	}
-}
-
 func (r *WSRoom) Name() string {
 	return r.name
 }
@@ -210,10 +181,28 @@ func (r *WSRoom) Store() *WSStore {
 	return r.store
 }
 
-func (r *WSRoom) Register(cli *Client) {
-	r.register <- cli
+func (r *WSRoom) Register(cli Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	name := cli.User.Name
+	_, ok := r.clients[name]
+	if !ok {
+		r.clients[name] = make(map[int]Client)
+	}
+
+	cli.ID = r.maxid
+	r.clients[name][r.maxid] = cli
+	r.maxid++
 }
 
-func (r *WSRoom) Unregister(cli *Client) {
-	r.unregister <- cli
+func (r *WSRoom) Unregister(cli Client) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	name := cli.User.Name
+	delete(r.clients[name], cli.ID)
+	if len(r.clients[name]) == 0 {
+		delete(r.clients, name)
+	}
 }

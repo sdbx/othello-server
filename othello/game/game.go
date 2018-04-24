@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/olebedev/emitter"
 	"github.com/sdbx/othello-server/othello/ws"
@@ -9,6 +10,7 @@ import (
 
 type (
 	Game struct {
+		sync.Mutex
 		Black     string
 		White     string
 		BlackTime uint
@@ -114,7 +116,9 @@ func (g *Game) GoBackTo(index int) {
 	g.History = g.History[:index]
 	g.Board = g.GameType.Initial()
 	tile := GameTileBlack
-	for _, mv := range g.History {
+	history := g.History
+
+	for _, mv := range history {
 		cord, _ := CordFromMove(mv)
 		g.put(cord, tile)
 		tile = tile.GetFlip()
@@ -214,6 +218,7 @@ func (g *Game) GetTile(cord Coordinate) Tile {
 	return GameTileInvalid
 }
 
+// not thread safe!
 func (g *Game) set(cord Coordinate, tile Tile) {
 	g.Board[cord.Y][cord.X] = tile
 }

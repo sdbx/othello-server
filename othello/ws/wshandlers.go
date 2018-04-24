@@ -1,11 +1,8 @@
 package ws
 
-const pongMsg = `
-{
-	"type":"pong"
-}
-`
+const pongMsg = `{"type":"pong"}`
 
-func WSPingHandler(client *Client, message []byte) {
+func WSPingHandler(client Client, message []byte) Client {
 	client.Connection.EmitMessage([]byte(pongMsg))
+	return client
 }

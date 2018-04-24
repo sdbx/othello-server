@@ -7,18 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sdbx/othello-server/othello/models"
+	"github.com/sdbx/othello-server/othello/dbs"
 	"github.com/sdbx/othello-server/othello/ws"
 )
 
 type (
 	GameStore struct {
-		mu sync.Mutex
 		*ws.WSStore
-	}
-	gameClient struct {
-		user *models.User
-		room *gameRoom
+		mu sync.RWMutex
 	}
 	gameRoom struct {
 		*ws.WSRoom
@@ -28,9 +24,9 @@ type (
 	}
 )
 
-func NewGameStore(userStore models.UserStore) *GameStore {
+func NewGameStore() *GameStore {
 	gs := &GameStore{
-		WSStore: ws.NewWSStore(userStore),
+		WSStore: ws.NewWSStore(),
 	}
 	gs.WSStore.Handlers["enter"] = gs.enterHandler
 	return gs
@@ -51,7 +47,6 @@ func (gs *GameStore) CreateGame(room string, black string, white string, gameTyp
 	gam := newGame(gameroom, black, white, gameType)
 	gameroom.game = gam
 	gs.Rooms[room] = gameroom
-	go gameroom.Run()
 	go gameroom.runGame()
 	return gam, nil
 }
@@ -59,6 +54,8 @@ func (gs *GameStore) CreateGame(room string, black string, white string, gameTyp
 func (g *gameRoom) runGame() {
 	end := g.game.Emitter.On("end")
 	turn := g.game.Emitter.On("turn")
+	undo := g.game.Emitter.On("undo")
+	undoAns := g.game.Emitter.On("undo_answer")
 	for {
 		select {
 		case event := <-end:
@@ -67,6 +64,10 @@ func (g *gameRoom) runGame() {
 			return
 		case event := <-turn:
 			g.Emit("turn", event.Args[0].(ws.H))
+		case event := <-undo:
+			g.Emit("undo", event.Args[0].(ws.H))
+		case event := <-undoAns:
+			g.Emit("undo_answer", event.Args[0].(ws.H))
 		case <-g.ticker1.C:
 			g.game.TimeCount()
 		case <-g.ticker10.C:
@@ -79,6 +80,9 @@ func (g *gameRoom) runGame() {
 }
 
 func (gs *GameStore) GetGame(room string) *Game {
+	gs.mu.RLock()
+	defer gs.mu.RUnlock()
+
 	if groom, ok := gs.Rooms[room]; ok {
 		return groom.(*gameRoom).game
 	}
@@ -91,37 +95,24 @@ type enterRequest struct {
 	Game   string `json:"game"`
 }
 
-const jsonErrorMsg = `
-{
-	"type":"error",
-	"msg":"json error",
-	"from":"none"
-}
-`
-const enterErrorMsg = `
-{
-	"type":"error",
-	"msg":"%s",
-	"from":"enter"
-}
-`
+const jsonErrorMsg = `{"type":"error","msg":"json error","from":"none"}`
+const enterErrorMsg = `{"type":"error","msg":"%s","from":"enter"}`
 
-func (gs *GameStore) enterHandler(cli *ws.Client, message []byte) {
+func (gs *GameStore) enterHandler(cli ws.Client, message []byte) ws.Client {
 	req := enterRequest{}
 	err := json.Unmarshal(message, &req)
 	if err != nil {
 		cli.EmitError("json error", "enter")
-		return
+		return cli
 	}
-	user := gs.UserStore.GetUserBySecret(req.Secret)
-	if user == nil {
+	user, err := dbs.GetUserBySecret(req.Secret)
+	if err != nil {
 		cli.EmitError("user doesn't exist", "enter")
-		return
+		return cli
 	}
-	err = gs.Enter(cli, user, req.Game)
+	cli, err = gs.Enter(cli, user, req.Game)
 	if err != nil {
 		cli.EmitError(err.Error(), "enter")
-		return
 	}
-
+	return cli
 }

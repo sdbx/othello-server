@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/buger/jsonparser"
+	"github.com/sdbx/othello-server/othello/dbs"
 	"github.com/sdbx/othello-server/othello/ws"
 )
 
@@ -27,17 +28,18 @@ type enterRequest struct {
 	Room   string `json:"room"`
 }
 
-func (rs *RoomStore) enterHandler(cli *ws.Client, message []byte) {
+func (rs *RoomStore) enterHandler(cli ws.Client, message []byte) ws.Client {
 	req := enterRequest{}
 	err := json.Unmarshal(message, &req)
 	if err != nil {
 		cli.EmitError("json error", "enter")
-		return
+		return cli
 	}
-	user := rs.UserStore.GetUserBySecret(req.Secret)
-	if user == nil {
+
+	user, err := dbs.GetUserBySecret(req.Secret)
+	if err != nil {
 		cli.EmitError("user doesn't exist", "enter")
-		return
+		return cli
 	}
 
 	if room, ok := rs.Rooms[req.Room]; !ok {
@@ -45,25 +47,26 @@ func (rs *RoomStore) enterHandler(cli *ws.Client, message []byte) {
 		rs.Rooms[req.Room].(*Room).King = user.Name
 	} else if len(room.GetClientsByName(user.Name)) != 0 {
 		cli.EmitError("allows only one connection per user", "enter")
-		return
+		return cli
 	}
 
-	err = rs.Enter(cli, user, req.Room)
+	cli, err = rs.Enter(cli, user, req.Room)
 	if err != nil {
 		cli.EmitError(err.Error(), "enter")
 	}
+	return cli
 }
 
-func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
+func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 	room := cli.Room.(*Room)
 	if room.King != cli.User.Name {
 		cli.EmitError("not enough permission", "action")
-		return
+		return cli
 	}
 	typ, err := jsonparser.GetString(message, "action")
 	if err != nil {
 		cli.EmitError(err.Error(), "actions")
-		return
+		return cli
 	}
 	switch typ {
 	case "color":
@@ -74,13 +77,13 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 		err = json.Unmarshal(message, &req)
 		if err != nil {
 			cli.EmitError(err.Error(), "color")
-			return
+			return cli
 		}
 
 		err = room.ChangeColor(req.Color, req.Username)
 		if err != nil {
 			cli.EmitError(err.Error(), "color")
-			return
+			return cli
 		}
 	case "kick":
 		req := struct {
@@ -89,7 +92,7 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 		err = json.Unmarshal(message, &req)
 		if err != nil {
 			cli.EmitError(err.Error(), "kick")
-			return
+			return cli
 		}
 		err = room.Kick(req.Target)
 		if err != nil {
@@ -102,7 +105,7 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 		err = json.Unmarshal(message, &req)
 		if err != nil {
 			cli.EmitError(err.Error(), "king")
-			return
+			return cli
 		}
 		room.ChangeKing(req.Target)
 		if err != nil {
@@ -116,4 +119,5 @@ func (rs *RoomStore) actionsHandler(cli *ws.Client, message []byte) {
 	default:
 		cli.EmitError("no such action", "actions")
 	}
+	return cli
 }

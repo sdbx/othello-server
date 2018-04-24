@@ -9,19 +9,19 @@ import (
 
 	"github.com/olebedev/emitter"
 	"github.com/sdbx/othello-server/othello/game"
-	"github.com/sdbx/othello-server/othello/models"
+	"github.com/sdbx/othello-server/othello/utils"
 	"github.com/sdbx/othello-server/othello/ws"
 )
 
 type (
 	State     uint
 	RoomStore struct {
-		mu sync.Mutex
+		mu sync.RWMutex
 		*ws.WSStore
 		gameStore *game.GameStore
 	}
 	Room struct {
-		mu sync.Mutex
+		mu sync.RWMutex
 		*ws.WSRoom
 		Participants  uint
 		State         State
@@ -32,38 +32,7 @@ type (
 		gameStore     *game.GameStore
 		lastConnected time.Time
 	}
-	keyStore struct {
-		mu   sync.Mutex
-		keys map[string]bool
-	}
 )
-
-// TODO use db instead
-var KeyStore = keyStore{
-	keys: make(map[string]bool),
-}
-
-var letterRunes = []rune("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func genKey(length int) string {
-	b := make([]rune, length)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
-
-func (s *keyStore) Gen() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for {
-		key := genKey(10)
-		if !s.keys[key] {
-			s.keys[key] = true
-			return key
-		}
-	}
-}
 
 const (
 	StatePerparing State = iota
@@ -96,7 +65,7 @@ func (r *Room) StartGame() (string, error) {
 	if r.Black == NoneUser || r.White == NoneUser {
 		return "", errors.New("some color isn't selected")
 	}
-	key := KeyStore.Gen()
+	key := utils.GenKey()
 	gam, err := r.gameStore.CreateGame(key, r.Black, r.White, game.DefaultOthello{})
 	if err != nil {
 		return "", err
@@ -115,17 +84,17 @@ func (r *Room) StartGame() (string, error) {
 	return key, nil
 }
 
-func (r *Room) GetClient(username string) *ws.Client {
+func (r *Room) GetClient(username string) (ws.Client, error) {
 	targets := r.GetClientsByName(username)
 	if len(targets) == 0 {
-		return nil
+		return ws.Client{}, errors.New("no such user")
 	}
-	return targets[0]
+	return targets[0], nil
 }
 
 func (r *Room) ChangeKing(target string) error {
-	cli := r.GetClient(target)
-	if cli == nil {
+	_, err := r.GetClient(target)
+	if err != nil {
 		return errors.New("user with target username doesn't exist")
 	}
 	r.King = target
@@ -143,8 +112,8 @@ func (r *Room) ChangeColor(color string, target string) error {
 	if color != "black" && color != "white" {
 		return errors.New("no such color")
 	}
-	cli := r.GetClient(target)
-	if cli == nil && target != NoneUser {
+	_, err := r.GetClient(target)
+	if err == nil && target != NoneUser {
 		return errors.New("user with target username doesn't exist")
 	}
 	if color == "black" {
@@ -162,8 +131,8 @@ func (r *Room) ChangeColor(color string, target string) error {
 }
 
 func (r *Room) Kick(target string) error {
-	cli := r.GetClient(target)
-	if cli == nil {
+	cli, err := r.GetClient(target)
+	if err != nil {
 		return errors.New("user with target username doesn't exist")
 	}
 	if cli.User.Name == r.King {
@@ -194,11 +163,10 @@ func (rs *RoomStore) CreateRoom(roomn string) error {
 		gameStore:    rs.gameStore,
 	}
 	rs.Rooms[roomn] = room
-	go room.Run()
 	return nil
 }
 
-func (r *Room) Register(cli *ws.Client) {
+func (r *Room) Register(cli ws.Client) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.Participants++
@@ -217,7 +185,7 @@ func (r *Room) pickNext(current string) string {
 	}
 }
 
-func (r *Room) Unregister(cli *ws.Client) {
+func (r *Room) Unregister(cli ws.Client) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	name := cli.User.Name
@@ -240,9 +208,9 @@ func (r *Room) Unregister(cli *ws.Client) {
 	}
 }
 
-func NewRoomStore(userStore models.UserStore, gameStore *game.GameStore) *RoomStore {
+func NewRoomStore(gameStore *game.GameStore) *RoomStore {
 	rs := &RoomStore{
-		WSStore: ws.NewWSStore(userStore),
+		WSStore: ws.NewWSStore(),
 	}
 	rs.gameStore = gameStore
 	rs.Handlers = map[string]ws.WSListenHandler{

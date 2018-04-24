@@ -1,3 +1,5 @@
 .vscode
 othello-server.exe
 othello-server
+.DS_Store
+othello.db

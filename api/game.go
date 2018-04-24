@@ -91,6 +91,8 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action, ok := actions[typ]; ok {
+		game.Lock()
 		action(w, r, game, bytes)
+		game.Unlock()
 	}
 }
