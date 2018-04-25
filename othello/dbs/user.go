@@ -2,6 +2,7 @@ package dbs
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/sdbx/othello-server/othello/utils"
@@ -17,17 +18,29 @@ type (
 	}
 
 	Battle struct {
-		gorm.Model
-		Winner string `gorm:"index:idx_battle_winner"`
-		Loser  string `gorm:"index:idx_battle_loser"`
-		Score  string
-		Moves  string
+		gorm.Model `json:"-"`
+		Winner     string `gorm:"index:idx_battle_winner" json:"winner"`
+		Loser      string `gorm:"index:idx_battle_loser" json:"loser"`
+		Score      string `json:"score"`
+		Moves      string `json:"moves"`
+	}
+
+	BattleWithDate struct {
+		Battle
+		Date time.Time `json:"date"`
 	}
 )
 
 func GetUserByUserID(UserID string) (User, error) {
 	out := User{}
 	err := db.Where("user_id = ?", UserID).First(&out).Error
+
+	return out, err
+}
+
+func GetUserByName(name string) (User, error) {
+	out := User{}
+	err := db.Where("name = ?", name).First(&out).Error
 
 	return out, err
 }
@@ -76,12 +89,29 @@ func AddUser(user *User) error {
 	return db.Create(user).Error
 }
 
-func (user *User) GetBattles() []Battle {
+func (user *User) GetBattles(page int) []BattleWithDate {
 	battles := []Battle{}
-	db.Where("winner = ? OR loser = ?", user.Name, user.Name).Find(&battles)
-	return battles
+	db.Where("winner = ? OR loser = ?", user.Name, user.Name).Offset(30 * page).Limit(30).Find(&battles)
+
+	out := []BattleWithDate{}
+	for _, battle := range battles {
+		out = append(out, BattleWithDate{
+			Battle: battle,
+			Date:   battle.CreatedAt,
+		})
+	}
+
+	return out
 }
 
 func AddBattle(battle *Battle) error {
 	return db.Create(battle).Error
+}
+
+func (user *User) GetWinLose() string {
+	win := 0
+	lose := 0
+	db.Model(&Battle{}).Where("winner = ? AND winner <> loser", user.Name).Count(&win)
+	db.Model(&Battle{}).Where("loser = ? AND winner <> loser", user.Name).Count(&lose)
+	return fmt.Sprintf("%d:%d", win, lose)
 }

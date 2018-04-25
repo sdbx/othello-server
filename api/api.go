@@ -54,10 +54,15 @@ func Start(serv *othello.Service) http.Handler {
 		Methods("GET").
 		Name("room detail")
 
-	r.Path("/users/me").
-		HandlerFunc(usersMeHandler).
+	r.Path("/users/{name}").
+		HandlerFunc(userHandler).
 		Methods("GET").
 		Name("personal info")
+
+	r.Path("/users/{name}/battles").
+		HandlerFunc(battleHandler).
+		Methods("GET").
+		Name("battles")
 
 	r.Path("/auth/{provider}/callback").
 		HandlerFunc(authCallbackHandler).

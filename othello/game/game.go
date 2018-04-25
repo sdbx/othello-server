@@ -12,23 +12,21 @@ import (
 	"github.com/sdbx/othello-server/othello/ws"
 )
 
-type (
-	Game struct {
-		sync.RWMutex
-		Black     string
-		White     string
-		BlackTime time.Duration
-		WhiteTime time.Duration
-		Board     Board
-		History   History
-		GameType  GameType
-		Emitter   *emitter.Emitter
-		gameRoom  *gameRoom
-		undoing   bool
-		undoIndex int
-		TurnStart time.Time
-	}
-)
+type Game struct {
+	sync.RWMutex
+	Black     string
+	White     string
+	BlackTime time.Duration
+	WhiteTime time.Duration
+	Board     Board
+	History   History
+	GameType  GameType
+	Emitter   *emitter.Emitter
+	gameRoom  *gameRoom
+	undoing   bool
+	undoIndex int
+	TurnStart time.Time
+}
 
 func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) *Game {
 	return &Game{
