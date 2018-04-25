@@ -2,9 +2,13 @@ package game
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/olebedev/emitter"
+	"github.com/sdbx/othello-server/othello/dbs"
 	"github.com/sdbx/othello-server/othello/ws"
 )
 
@@ -13,8 +17,8 @@ type (
 		sync.RWMutex
 		Black     string
 		White     string
-		BlackTime uint
-		WhiteTime uint
+		BlackTime time.Duration
+		WhiteTime time.Duration
 		Board     Board
 		History   History
 		GameType  GameType
@@ -22,6 +26,7 @@ type (
 		gameRoom  *gameRoom
 		undoing   bool
 		undoIndex int
+		TurnStart time.Time
 	}
 )
 
@@ -36,7 +41,22 @@ func newGame(gameRoom *gameRoom, black string, white string, gameType GameType) 
 		Emitter:   &emitter.Emitter{},
 		GameType:  gameType,
 		gameRoom:  gameRoom,
+		TurnStart: time.Now(),
 	}
+}
+
+func (g *Game) GetBlackTime() time.Duration {
+	if g.Turn() == GameTurnBlack {
+		return g.BlackTime - time.Now().Sub(g.TurnStart)
+	}
+	return g.BlackTime
+}
+
+func (g *Game) GetWhiteTime() time.Duration {
+	if g.Turn() == GameTurnWhite {
+		return g.WhiteTime - time.Now().Sub(g.TurnStart)
+	}
+	return g.WhiteTime
 }
 
 func (g *Game) Put(cord Coordinate, tile Tile) error {
@@ -50,13 +70,14 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 
 	g.put(cord, tile)
 
+	g.BlackTime = g.GetBlackTime()
+	g.WhiteTime = g.GetWhiteTime()
 	move := cord.ToMove()
 	g.History = append(g.History, move)
 	<-g.Emitter.Emit("turn", ws.H{
 		"color": turn,
 		"move":  move,
 	})
-
 	if g.CheckEnd() {
 		return nil
 	}
@@ -69,28 +90,8 @@ func (g *Game) Put(cord Coordinate, tile Tile) error {
 			"move":  MoveNone,
 		})
 	}
-
+	g.TurnStart = time.Now()
 	return nil
-}
-
-func (g *Game) TimeCount() {
-	if g.Turn() == GameTurnBlack {
-		g.BlackTime--
-		if g.BlackTime == 0 {
-			<-g.Emitter.Emit("end", ws.H{
-				"winner": "white",
-				"cause":  "timeout",
-			})
-		}
-	} else {
-		g.WhiteTime--
-		if g.WhiteTime == 0 {
-			<-g.Emitter.Emit("end", ws.H{
-				"winner": "black",
-				"cause":  "timeout",
-			})
-		}
-	}
 }
 
 func (g *Game) UndoAnswer(ok bool) {
@@ -121,24 +122,41 @@ func (g *Game) UndoReq(turn Turn) {
 	}
 }
 
+func (g *Game) end() {
+	black, white := g.total()
+
+	winner := ""
+	moves := []string{}
+	for _, move := range g.History {
+		moves = append(moves, string(move))
+	}
+	battle := dbs.Battle{
+		Moves: strings.Join(moves, ":"),
+	}
+	if black > white {
+		winner = "black"
+		battle.Winner = g.Black
+		battle.Loser = g.White
+		battle.Score = fmt.Sprintf("%d:%d", black, white)
+		dbs.AddBattle(&battle)
+	} else if black < white {
+		winner = "white"
+		battle.Winner = g.White
+		battle.Loser = g.Black
+		battle.Score = fmt.Sprintf("%d:%d", white, black)
+		dbs.AddBattle(&battle)
+	} else {
+		winner = "drew"
+	}
+	<-g.Emitter.Emit("end", ws.H{
+		"winner": winner,
+	})
+}
+
 func (g *Game) CheckEnd() bool {
 	if g.numberOfPossibleMoves(GameTurnBlack) == 0 &&
 		g.numberOfPossibleMoves(GameTurnWhite) == 0 {
-		black, white := g.total()
-
-		winner := ""
-		if black > white {
-			winner = "black"
-		} else if black < white {
-			winner = "white"
-		} else {
-			winner = "drew"
-		}
-		<-g.Emitter.Emit("end", ws.H{
-			"winner": winner,
-			"cause":  "normally",
-		})
-
+		g.end()
 		return true
 	}
 	return false

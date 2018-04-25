@@ -9,31 +9,12 @@
 ### 요약
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| POST | **/register** | 테스트 유저 등록입니다 |
-| POST | /register/naver | 네이버 유저 등록입니다 |
-| GET | **/users/me** | 클라이언트의 정보를 가져옵니다 |
+| GET | **/auth/naver** | 네이버 로그인을 이용하여 유저 시크릿을 얻습니다. |
+| GET | /users/{username} | 유저 이름을 이용하여 유저 정보를 얻습니다. |
 
-### /register
+### **/users/{username}**
 
-#### 바디
-
-```
-{
-  username: 유저이름
-}
-```
-
-#### 응답
-
-```
-{
-  secret: 유저시크릿
-} 
-```
-
-### **/users/me**
-
-네이버 토큰 또는 유저 시크릿을 이용해 클라이언트의 정보를 가져옵니다. 둘 중 하나만 있어도 동작하며 네이버 토큰의 경우 클라이언트가 등록되지 않았을 경우 자동으로 등록후 정보를 반환해줍니다.
+유저 이름을 이용하여 유저 정보를 얻습니다. 유저 이름의 중복을 허용하지 않으므로 무조건 한 유저의 정보만을 가져옵니다.
 
 #### 헤더
 
@@ -56,7 +37,7 @@ X-User-Secret : 유저 시크릿
 
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
-| GET | **/rooms** | 방 리스트를 구합니다 |
+| GET | **/rooms** | 방 리스트를 얻습니다. |
 | GET | **/rooms/{room}** | 특정 방의 정보를 가져옵니다 |
 
 ### **/rooms**
@@ -68,8 +49,12 @@ X-User-Secret : 유저 시크릿
   rooms:[
     {
       name: 방이름
+      participants: 인원수
       king: 방장이름
-      n_of_people: 접속자수
+      black: 흑 (유저이름 or "none")
+      white: 백 (유저이름 or "none")
+      state: 상태(0 준비중 1 게임중)
+      game: 게임 아이디 (id or "none")
     }
     ...
   ]
@@ -83,18 +68,17 @@ X-User-Secret : 유저 시크릿
 ```
 {
   name: 방이름
+  participants: 인원수
+  paritcipant_names: [유저 이름들]
   king: 방장이름
-  participants: 접속자들
-  black: 유저네임 or "none"
-  white: 유저네임 or "none"
-  state: "ingame" or "perparing"
-  game: 게임id or "none"
+  black: 흑 (유저이름 or "none")
+  white: 백 (유저이름 or "none")
+  state: 상태(0 준비중 1 게임중)
+  game: 게임 아이디 (id or "none")
 }
 ```
 
 ## 웹소켓
-
-존재하지 않는 방에 login 할 시 방이 자동으로 파집니다. 방은 게임이 시작되었을 경우 모든 클라이언트들이 방 웹소켓과 접속이 끊어져도 방은 유지되나 준비중의 방의 경우는 방이 사라집니다. 그렇기에 방과 게임 페이지를 분리해도 게임이 끝났을 때 방 페이지로 돌아와 다시 방 웹소켓에 연결한다는 보장이 있으면 문제가 없습니다.
 
 ### 송신
 
@@ -132,13 +116,13 @@ keepAlive();
 
 ### **enter**
 
-서버에게 자신이 등록된 클라이언트임을 증명합니다. login이 성공적으로 이루어지지 않았을 경우 프로토콜 사용이 불가능합니다
+특정 방에 접속합니다. 방이 존재하지 않다면 새로 만듭니다.
 
 ```
 {
-  type:"login"
+  type:"enter"
   secret:"시크릿"
-  room:"방"
+  room:"방이름"
 }
 ```
 
@@ -146,12 +130,12 @@ keepAlive();
 ```
 {
   type:"error"
-  from:"login"
+  from:"enter"
   msg:"에러메세지"
 }
 ```
 
-### **actions**
+### **action**
 
 만약 방장일 경우 어떤 행동을 취합니다.
 
@@ -159,8 +143,8 @@ keepAlive();
 
 ```
 {
-  type:"actions"
-  target:"유저이름"
+  type:"action"
+  to:"유저이름"
   action:"kick"
 }
 ``` 
@@ -169,8 +153,8 @@ keepAlive();
 
 ```
 {
-  type:"actions"
-  target:"유저이름"
+  type:"action"
+  to:"유저이름"
   action:"king"
 }
 ``` 
@@ -179,7 +163,7 @@ keepAlive();
 
 ```
 {
-  type:"actions"
+  type:"action"
   to:"유저이름"
   action:"color"
   color:"black"
@@ -190,32 +174,29 @@ keepAlive();
 
 ```
 {
-  type:"actions"
+  type:"action"
   to:"유저이름"
   action:"color"
   color:"white"
 }
 ``` 
 
-게임 타입 변경
+흑과 백 그 무엇도 아.니 도록 크킄(broadcast)
 
 ```
 {
-  type:"actions"
-  action:"typechange"
-  initial: 게임보드
-  size: {
-    w: 가로
-    h: 세로
-  }
+  type:"action"
+  to:"유저이름"
+  action:"color"
+  color:"none"
 }
-```
+``` 
 
 게임 시작하기
 
 ```
 {
-  type:"actions"
+  type:"action"
   action:"gamestart"
 }
 ```
@@ -224,13 +205,12 @@ keepAlive();
 
 ### **disconnect**
 
-누군가의 접속이 끊어졌을 때 생깁니다. 만약 방장의 접속이 끊어진 경우 다음 방장의 아이디도 포함됩니다.
+누군가의 접속이 끊어졌을 때 생깁니다.
 
 ```
 {
   type:"disconnect"
   username:유저이름
-  next_king:유저이름 or x
 }
 ```
 
@@ -284,10 +264,10 @@ keepAlive();
 | 2 | 공백 |
 
 
-수는 기보형식으로 된 돌의 위치를 의미합니다. 수는 앞에 a-z까지의 글자와 뒤에 숫자들로 이루어져 있습니다. a는 0을 의미하며 b는 2를 의미하며 ... z는 25를 의미합니다. 1은 0을 의미하며 2는 1을 의미하며 .... 26은 25를 의미합니다. 게임보드[숫자][알파벳]으로 이 위치의 돌을 구할 수 있습니다. 
+수는 기보형식으로 된 돌의 위치를 의미합니다. 수는 앞에 a-z까지의 글자와 뒤에 숫자들로 이루어져 있습니다. a는 0을 의미하며 b는 2를 의미하며 ... z는 25를 의미합니다. 1은 0을 의미하며 2는 1을 의미하며 .... 26은 25를 의미합니다. 게임보드[숫자][숫자로 변환된 알파벳]으로 이 위치의 돌을 구할 수 있습니다. 
 
 
-히스토리는 게임수들로 이루어진 1차원 배열입니다. 짝수번째의 인덱스의 값들은 흑의 수를 의미하며 홀수번째의 인덱스의 값들은 백의 수를 의미합니다. 히스토리 안에서는 수가 none인 경우도 있는데 이는 둘 수 있는 수가 없어서 넘겨진 것으로 아무 곳에도 두지 않았다는 것입니다. 히스토리 안에서 none수가 있다고 클라이언트가 none수를 둘 수 있는 것은 아닙니다. 만약 이 것이 가능해진다면 오델로 공식 룰에 어긋나게 되기 때문입니다. 그렇기 때문에 히스토리 안이나 웹소켓으로 통보받은 none수는 처리하되 none수를 보내지는 않도록 설계해야합니다.
+히스토리는 수들로 이루어진 1차원 배열입니다. 짝수번째의 인덱스의 값들은 흑의 수를 의미하며 홀수번째의 인덱스의 값들은 백의 수를 의미합니다. 히스토리 안에서는 수가 none인 경우도 있는데 이는 둘 수 있는 수가 없어서 넘겨진 것으로 아무 곳에도 두지 않았다는 것입니다. 히스토리 안에서 none수가 있다고 클라이언트가 none수를 둘 수 있는 것은 아닙니다. 만약 이 것이 가능해진다면 오델로 공식 룰에 어긋나게 되기 때문입니다. 
 
 ## rest
 
@@ -301,7 +281,6 @@ X-User-Secret : 유저 시크릿
 | --- | --- | --- |
 | GET | **/games/{id}** | 현재 게임에 대한 정보를 가져옵니다 |
 | POST | **/games/{id}/actions** | 게임에 뭔짓을 합니다 |
-| POST | **/games/{id}** | 게임을 만듭니다(테스트) |
 
 ### /games/{id}
 
@@ -321,10 +300,6 @@ X-User-Secret : 유저 시크릿
     black:흑 남은시간(초)
     white:백 남은시간(초)
   }
-  total: {
-    black: 흑돌수
-    white: 백돌수
-  }
 }
 ```
 
@@ -335,6 +310,7 @@ X-User-Secret : 유저 시크릿
 ```
 {
   type:"put"
+  long_poll: true or false 
   move:수(기보형식)
 }
 ```
@@ -358,7 +334,7 @@ X-User-Secret : 유저 시크릿
 
 ## websocket
 
-처음 login을 성공적으로 마쳤을 경우 웹소켓은 게임의 변화를 통보합니다.  
+웹소켓은 게임 상태의 변화를 통보합니다.  
 
 ### 송신
 
@@ -396,12 +372,11 @@ keepAlive();
 
 ### **enter**
 
-서버에게 자신이 등록된 클라이언트임을 증명합니다.
+게임아이디를 이용하여 특정 게임의 웹소켓에 접속합니다.
 
 ```
 {
-  type:"login"
-  secret:"시크릿"
+  type:"enter"
   game:"게임id"
 }
 ```
@@ -410,7 +385,7 @@ keepAlive();
 ```
 {
   type:"error"
-  from:"login"
+  from:"enter"
   msg:"에러메세지"
 }
 ```
@@ -438,40 +413,23 @@ keepAlive();
   type:"end"
   winner:"black" or "white"
   cause:"원인"
-  total: {
-    black: 흑돌수
-    white: 백돌수
-  }
-}
-```
-
-### **tick**
-
-10초에 한번씩 보내집니다.
-
-```
-{
-  type:"tick"
-  black:흑 남은 시간(초)
-  white:백 남은 시간(초)
 }
 ```
 
 ### undo
 
-수무르기를 신청했음을 의미합니다. 만약 색이 상대편의 색이라면 무언가 해줘야합니다.
+수무르기를 신청했음을 의미합니다. 
 
 ```
 {
   type:"undo"
   color:"black" or "white"
 }
-
 ```
 
 ### undo_answer
 
-수무르기에 대한 응답을 의미합니다. 만약 answer가 yes라면 수 index로 돌아가야 합니다.
+수무르기에 대한 응답을 의미합니다. 만약 answer가 true라면 수 히스토리를 이용하여 수 index로 돌아가야 합니다.
 
 ```
 {

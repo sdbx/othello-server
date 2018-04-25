@@ -1,17 +1,14 @@
 # todo
 
 ## rest
-- [x] /register
-- [ ] /register/naver
-- [x] /users/me
+- [x] /auth/naver
+- [ ] /users/{username}
 - [x] /rooms
 - [x] /rooms/{room}
 - [x] /games/{id} get
 - [x] /games/{id}/actions put
 - [ ] /games/{id}/actions undo
 - [ ] /games/{id}/actions undo_answer
-
-__games/{id} post__ deprecated
 
 ## websocket 게임
 
@@ -24,22 +21,21 @@ __games/{id} post__ deprecated
 - [x] connect
 - [x] disconnect
 - [x] end
-- [x] tick
-- [ ] undo
-- [ ] undo_answer
+- [x] undo
+- [x] undo_answer
 
 ## websocket 방
 
 ### 송신
 - [x] enter
 - [x] ping
-- [x] actions
+- [x] action
 - [x] gamestart
 
 ### 수신
 - [x] connect
 - [x] disconnect
-- [x] actions
+- [x] action
 - [x] gamestart
 - [x] gameend
 

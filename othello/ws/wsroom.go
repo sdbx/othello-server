@@ -93,7 +93,7 @@ func (r *WSRoom) Emit(typ string, ho H) {
 
 func (r *WSRoom) EmitMsg(content []byte) {
 	for _, con := range r.Store().WS.GetConnectionsByRoom(r.Name()) {
-		go con.EmitMessage(content)
+		con.EmitMessage(content)
 	}
 	log.Println("websocket sent from", r.name, ":", string(content))
 }

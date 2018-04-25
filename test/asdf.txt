@@ -1,0 +1,1 @@
+{"type":"enter","secret":"rfBd67ti3SMtYvSgD6xAV1YU00zamp","room":"asdf"}

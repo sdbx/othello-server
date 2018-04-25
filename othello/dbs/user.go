@@ -18,10 +18,10 @@ type (
 
 	Battle struct {
 		gorm.Model
-		First       string
-		Second      string
-		FirstScore  uint
-		SecondScore uint
+		Winner string `gorm:"index:idx_battle_winner"`
+		Loser  string `gorm:"index:idx_battle_loser"`
+		Score  string
+		Moves  string
 	}
 )
 
@@ -74,4 +74,14 @@ func AddUser(user *User) error {
 	}
 
 	return db.Create(user).Error
+}
+
+func (user *User) GetBattles() []Battle {
+	battles := []Battle{}
+	db.Where("winner = ? OR loser = ?", user.Name, user.Name).Find(&battles)
+	return battles
+}
+
+func AddBattle(battle *Battle) error {
+	return db.Create(battle).Error
 }

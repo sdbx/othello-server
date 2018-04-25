@@ -1,11 +1,15 @@
 package game
 
+import (
+	"time"
+)
+
 type (
 	GameType interface {
 		Name() string
 		Initial() Board
 		Size() Coordinate
-		Time() uint
+		Time() time.Duration
 	}
 	DefaultOthello struct {
 	}
@@ -36,6 +40,6 @@ func (d DefaultOthello) Size() Coordinate {
 	return Coordinate{8, 8}
 }
 
-func (d DefaultOthello) Time() uint {
-	return ^uint(0)
+func (d DefaultOthello) Time() time.Duration {
+	return time.Second * 30
 }

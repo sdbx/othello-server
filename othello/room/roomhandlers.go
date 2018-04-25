@@ -78,7 +78,7 @@ func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 
 	case "kick":
 		req := struct {
-			Target string `json:"target"`
+			Target string `json:"to"`
 		}{}
 
 		err = json.Unmarshal(message, &req)
@@ -94,7 +94,7 @@ func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 
 	case "king":
 		req := struct {
-			Target string `json:"target"`
+			Target string `json:"to"`
 		}{}
 
 		err = json.Unmarshal(message, &req)
@@ -111,7 +111,7 @@ func (rs *RoomStore) actionsHandler(cli ws.Client, message []byte) ws.Client {
 	case "gamestart":
 		_, err := room.StartGame()
 		if err != nil {
-			cli.EmitError(err.Error(), "start")
+			cli.EmitError(err.Error(), "gamestart")
 		}
 
 	default:

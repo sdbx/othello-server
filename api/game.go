@@ -65,8 +65,8 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 			"white": game.White,
 		},
 		"times": h{
-			"black": game.BlackTime,
-			"white": game.WhiteTime,
+			"black": game.GetBlackTime(),
+			"white": game.GetWhiteTime(),
 		},
 	}
 	game.RUnlock()
@@ -103,8 +103,6 @@ func gameActionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if action, ok := actions[typ]; ok {
-		game.Lock()
 		action(w, r, game, bytes)
-		game.Unlock()
 	}
 }

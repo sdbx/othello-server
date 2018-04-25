@@ -32,9 +32,8 @@ func (gs *GameStore) CreateGame(room string, black string, white string, gameTyp
 	log.Println(room, "game created")
 
 	gameroom := &gameRoom{
-		WSRoom:   ws.NewWSRoom(room, gs.WSStore),
-		ticker1:  time.NewTicker(time.Second),
-		ticker10: time.NewTicker(time.Second * 10),
+		WSRoom: ws.NewWSRoom(room, gs.WSStore),
+		timer:  time.NewTimer(gameType.Time()),
 	}
 	gam := newGame(gameroom, black, white, gameType)
 	gameroom.game = gam
@@ -55,9 +54,8 @@ func (gs *GameStore) GetGame(room string) *Game {
 }
 
 type enterRequest struct {
-	_      string `json:"type"`
-	Secret string `json:"secret"`
-	Game   string `json:"game"`
+	_    string `json:"type"`
+	Game string `json:"game"`
 }
 
 const jsonErrorMsg = `{"type":"error","msg":"json error","from":"none"}`
@@ -72,13 +70,7 @@ func (gs *GameStore) enterHandler(cli ws.Client, message []byte) ws.Client {
 		return cli
 	}
 
-	user, err := dbs.GetUserBySecret(req.Secret)
-	if err != nil {
-		cli.EmitError("user doesn't exist", "enter")
-		return cli
-	}
-
-	cli, err = gs.Enter(cli, user, req.Game)
+	cli, err = gs.Enter(cli, dbs.User{}, req.Game)
 	if err != nil {
 		cli.EmitError(err.Error(), "enter")
 	}

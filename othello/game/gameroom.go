@@ -8,9 +8,15 @@ import (
 
 type gameRoom struct {
 	*ws.WSRoom
-	game     *Game
-	ticker1  *time.Ticker
-	ticker10 *time.Ticker
+	game  *Game
+	timer *time.Timer
+}
+
+func retimer(t *time.Timer, d time.Duration) {
+	if !t.Stop() {
+		<-t.C
+	}
+	t.Reset(d)
 }
 
 func (g *gameRoom) runGame() {
@@ -22,21 +28,33 @@ func (g *gameRoom) runGame() {
 		select {
 		case event := <-end:
 			g.Emit("end", event.Args[0].(ws.H))
+			g.game.Emitter.Off("*")
 			g.Close()
 			return
 		case event := <-turn:
-			g.Emit("turn", event.Args[0].(ws.H))
+			arg := event.Args[0].(ws.H)
+			g.Emit("turn", arg)
+			go func() {
+				g.game.RLock()
+				defer g.game.RUnlock()
+				if arg["color"].(Turn) == "black" {
+					retimer(g.timer, g.game.WhiteTime)
+				}
+				if arg["color"].(Turn) == "white" {
+					retimer(g.timer, g.game.BlackTime)
+				}
+			}()
 		case event := <-undo:
 			g.Emit("undo", event.Args[0].(ws.H))
 		case event := <-undoAns:
 			g.Emit("undo_answer", event.Args[0].(ws.H))
-		case <-g.ticker1.C:
-			g.game.TimeCount()
-		case <-g.ticker10.C:
-			g.Emit("tick", ws.H{
-				"black": g.game.BlackTime,
-				"white": g.game.WhiteTime,
-			})
+		case <-g.timer.C:
+			// prevent deadlock
+			go func() {
+				g.game.Lock()
+				defer g.game.Unlock()
+				g.game.end()
+			}()
 		}
 	}
 }

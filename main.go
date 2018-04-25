@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -17,6 +19,6 @@ func main() {
 	)
 	service := othello.NewService()
 	r := api.Start(service)
-	http.ListenAndServe(os.Getenv("API_ADDR"), r)
+	fmt.Println(os.Getenv("API_ADDR"))
+	log.Println(http.ListenAndServe(os.Getenv("API_ADDR"), r))
 }
-

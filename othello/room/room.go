@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/olebedev/emitter"
 	"github.com/sdbx/othello-server/othello/game"
 	"github.com/sdbx/othello-server/othello/utils"
 	"github.com/sdbx/othello-server/othello/ws"
@@ -28,10 +27,10 @@ type (
 	Room struct {
 		sync.RWMutex
 		*ws.WSRoom
-		roomStore     *RoomStore
-		gameStore     *game.GameStore
-		lastConnected time.Time
-		info          RoomInfo
+		roomStore *RoomStore
+		gameStore *game.GameStore
+		isWaiting bool
+		info      RoomInfo
 	}
 )
 
@@ -62,6 +61,10 @@ func (r *Room) StartGame() (string, error) {
 		return "", errors.New("some color isn't selected")
 	}
 
+	if !r.validateColor() {
+		return "", errors.New("some color is selected by weirdo")
+	}
+
 	name := r.runGame()
 
 	return name, nil
@@ -74,12 +77,16 @@ func (r *Room) runGame() string {
 	r.info.State = StateGame
 	r.info.Game = name
 
-	gam.Emitter.On("end", func(e *emitter.Event) {
+	go func() {
+		<-gam.Emitter.On("end")
+		r.Lock()
+		defer r.Unlock()
 		r.info.State = StatePerparing
 		r.info.Game = NoneGame
 		r.Emit("gameend", ws.H{})
+		r.isWaiting = true
 		go r.timeout()
-	})
+	}()
 
 	r.Emit("gamestart", ws.H{
 		"game": name,
@@ -126,7 +133,7 @@ func (r *Room) ChangeColor(color string, target string) error {
 	}
 
 	_, err := r.GetClient(target)
-	if err == nil && target != NoneUser {
+	if err != nil && target != NoneUser {
 		return errors.New("no such user")
 	}
 
@@ -170,7 +177,6 @@ func (r *Room) Register(cli ws.Client) {
 	// deal with room
 	r.Lock()
 	r.info.Participants++
-	r.lastConnected = time.Now()
 	r.Unlock()
 
 	r.WSRoom.Register(cli)
@@ -202,7 +208,13 @@ func (r *Room) Unregister(cli ws.Client) {
 	r.Lock()
 	info := r.info
 	r.info.Participants--
-	if r.info.Participants == 0 && r.info.State == StatePerparing {
+
+	if r.info.State == StateGame || r.isWaiting {
+		r.Unlock()
+		return
+	}
+
+	if r.info.Participants == 0 {
 		r.Unlock()
 		r.Close()
 		return
@@ -224,6 +236,22 @@ func (r *Room) Unregister(cli ws.Client) {
 	}
 }
 
+// not thread safe
+func (r *Room) validateColor() bool {
+	names := r.GetClientNames()
+	foundBlack := false
+	foundWhite := false
+	for _, name := range names {
+		if name == r.info.Black {
+			foundBlack = true
+		}
+		if name == r.info.White {
+			foundWhite = true
+		}
+	}
+	return foundBlack && foundWhite
+}
+
 func (r *Room) GetInfo() RoomInfo {
 	r.RLock()
 	defer r.RUnlock()
@@ -238,9 +266,27 @@ func (r *Room) pickNext() string {
 func (r *Room) timeout() {
 	t := time.NewTimer(time.Second * 30)
 	<-t.C
+	if !r.isWaiting {
+		return
+	}
 
-	diff := time.Now().Sub(r.lastConnected)
-	if diff >= time.Second*30 {
+	names := r.GetClientNames()
+	if len(names) == 0 {
 		r.Close()
+		return
+	}
+
+	r.Lock()
+	foundKing := false
+	for _, name := range names {
+		if name == r.info.King {
+			foundKing = true
+			break
+		}
+	}
+	r.Unlock()
+
+	if !foundKing {
+		r.ChangeKing(r.pickNext())
 	}
 }

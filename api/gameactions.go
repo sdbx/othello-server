@@ -10,8 +10,9 @@ import (
 )
 
 type actionsPutRequest struct {
-	_    string `json:"type"`
-	Move string `json:"move"`
+	_        string `json:"type"`
+	Move     string `json:"move"`
+	LongPoll bool   `json:"long_poll`
 }
 
 func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []byte) {
@@ -39,9 +40,15 @@ func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []
 		return
 	}
 
+	gam.Lock()
+
 	if gam.Black == user.Name {
 		err = gam.Put(cord, game.GameTileBlack)
 		if err == nil {
+			gam.Unlock()
+			if req.LongPoll {
+				<-gam.Emitter.Once("turn")
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -50,11 +57,16 @@ func actionsPut(w http.ResponseWriter, r *http.Request, gam *game.Game, bytes []
 	if gam.White == user.Name {
 		err = gam.Put(cord, game.GameTileWhite)
 		if err == nil {
+			gam.Unlock()
+			if req.LongPoll {
+				<-gam.Emitter.Once("turn")
+			}
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 	}
 
+	gam.Unlock()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintln(w, err)
