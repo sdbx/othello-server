@@ -10,25 +10,45 @@
 | 메소드 | 엔드포인트 | 설명 |
 | --- | --- | --- |
 | GET | **/auth/naver** | 네이버 로그인을 이용하여 유저 시크릿을 얻습니다. |
-| GET | /users/{username} | 유저 이름을 이용하여 유저 정보를 얻습니다. |
+| GET | **/users/{username}** | 유저 이름을 이용하여 유저 정보를 얻습니다. |
+| GET | **/users/{username}/battles** | 특정 유저의 전적을 얻습니다. |
 
 ### **/users/{username}**
 
 유저 이름을 이용하여 유저 정보를 얻습니다. 유저 이름의 중복을 허용하지 않으므로 무조건 한 유저의 정보만을 가져옵니다.
 
-#### 헤더
-
-X-User-Secret : 유저 시크릿
-
 #### 응답
 
 ```
 {
-  secret: 유저시크릿
   username: 유저이름
+  profile: 프로필 사진
+  win_lose: 승수/패수
 } 
 ```
 
+### **/users/{username}/battles**
+
+특정 유저의 전적을 가져옵니다. 
+
+#### 쿼리
+
+p: 페이지(0부터 시작)
+
+#### 응답
+
+```
+[
+  {
+    winner: "승자"
+    loser: "패자"
+    score: "승자돌:패자돌"
+    moves: "기보"
+    date: 경기시간
+  }
+  ...
+]
+```
 # 방
 
 ## rest
@@ -45,20 +65,18 @@ X-User-Secret : 유저 시크릿
 #### 응답
 
 ```
-{
-  rooms:[
-    {
-      name: 방이름
-      participants: 인원수
-      king: 방장이름
-      black: 흑 (유저이름 or "none")
-      white: 백 (유저이름 or "none")
-      state: 상태(0 준비중 1 게임중)
-      game: 게임 아이디 (id or "none")
-    }
-    ...
-  ]
-}
+[
+  {
+    name: 방이름
+    participants: 인원수
+    king: 방장이름
+    black: 흑 (유저이름 or "none")
+    white: 백 (유저이름 or "none")
+    state: 상태(0 준비중 1 게임중)
+    game: 게임 아이디 (id or "none")
+  }
+  ...
+]
 ```
 
 ### **/rooms/{room}**
@@ -288,7 +306,6 @@ X-User-Secret : 유저 시크릿
 
 ```
 {
-  room:방이름
   board:현재게임보드
   history:히스토리
   initial:초기게임보드
@@ -297,8 +314,8 @@ X-User-Secret : 유저 시크릿
     white:백 유저이름
   }
   times:{
-    black:흑 남은시간(초)
-    white:백 남은시간(초)
+    black:흑 남은시간(나노초)
+    white:백 남은시간(나노초)
   }
 }
 ```
@@ -412,7 +429,6 @@ keepAlive();
 {
   type:"end"
   winner:"black" or "white"
-  cause:"원인"
 }
 ```
 

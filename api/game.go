@@ -22,30 +22,6 @@ type gameCreateRequest struct {
 	Whitename string `json:"white"`
 }
 
-func gameCreateHandler(w http.ResponseWriter, r *http.Request) {
-	if !jsonTest(w, r) {
-		return
-	}
-
-	req := gameCreateRequest{}
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err)
-		return
-	}
-
-	vars := mux.Vars(r)
-	_, err = service.GameStore.CreateGame(vars["game"], req.Blackname, req.Whitename, game.DefaultOthello{})
-	if err != nil {
-		w.WriteHeader(http.StatusConflict)
-		fmt.Fprintln(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
 func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	game := service.GameStore.GetGame(vars["game"])
@@ -56,7 +32,6 @@ func gameGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	game.RLock()
 	resp := h{
-		"room":    "not implemented",
 		"board":   game.Board,
 		"history": game.History,
 		"initial": game.GameType.Initial(),

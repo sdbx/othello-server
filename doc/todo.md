@@ -2,7 +2,8 @@
 
 ## rest
 - [x] /auth/naver
-- [ ] /users/{username}
+- [x] /users/{username}
+- [x] /users/{username}/battles
 - [x] /rooms
 - [x] /rooms/{room}
 - [x] /games/{id} get
